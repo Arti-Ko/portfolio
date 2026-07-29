@@ -1,0 +1,439 @@
+"""Описание BPMN-моделей портфолио и генерация .bpmn файлов.
+
+Запуск:  python3 tools/build_diagrams.py
+"""
+from __future__ import annotations
+
+import pathlib
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).parent))
+
+import re  # noqa: E402
+
+from bpmn_gen import End, Flow, Gateway, Lane, Model, Start, Task, render  # noqa: E402
+from mermaid_gen import to_mermaid  # noqa: E402
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+
+# --------------------------------------------------------------------------
+# Проект 1 — Telegram-бот регистрации на мероприятия
+# --------------------------------------------------------------------------
+
+registration = Model(
+    id="event_registration",
+    name="Регистрация участника на мероприятие",
+    pool_name="Регистрация на мероприятие через Telegram",
+    documentation=(
+        "Основной сквозной процесс: от перехода по deep link до выдачи "
+        "электронного билета. Целевая конверсия из открытия карточки "
+        "в завершённую регистрацию — 85%."
+    ),
+    lanes=[
+        Lane("Lane_participant", "Участник", rows=1),
+        Lane("Lane_bot", "Telegram-бот (FSM)", rows=2),
+        Lane("Lane_core", "Сервис регистрации", rows=1),
+        Lane("Lane_ext", "Внешние системы", rows=1),
+    ],
+    nodes=[
+        Start("Start_deeplink", "Переход по deep link\n/start event_id", "Lane_participant", 0, kind="message"),
+        Task("T_resolve", "Определить мероприятие\nпо deep link", "Lane_bot", 1, kind="service"),
+        Task("T_capacity", "Проверить свободные места\nи дедлайн регистрации", "Lane_core", 2, kind="service"),
+        Gateway("G_capacity", "Есть свободные места?", "Lane_core", 3),
+        Task("T_card", "Показать карточку события\nи кнопку «Зарегистрироваться»", "Lane_bot", 4, kind="send"),
+        Task("T_waitlist", "Предложить\nлист ожидания", "Lane_bot", 4, row=1, kind="send"),
+        End("End_waitlist", "Заявка в листе ожидания", "Lane_bot", 5, row=1),
+        Task("T_tap", "Нажать\n«Зарегистрироваться»", "Lane_participant", 5, kind="user"),
+        Gateway("G_profile", "Профиль заполнен?", "Lane_bot", 6),
+        Task("T_form", "Заполнить анкету:\nФИО, e-mail, телефон", "Lane_participant", 7, kind="user"),
+        Task("T_validate", "Валидировать поля\nи проверить дубли", "Lane_core", 8, kind="service"),
+        Gateway("G_valid", "Данные корректны?", "Lane_core", 9),
+        Task("T_create", "Создать заявку\nи забронировать место", "Lane_core", 10, kind="service"),
+        Task("T_crm", "Записать участника\nв Google Sheets / Airtable", "Lane_ext", 11, kind="service"),
+        Task("T_ticket", "Отправить билет с QR-кодом\nи файл календаря", "Lane_bot", 12, kind="send"),
+        End("End_done", "Регистрация завершена", "Lane_participant", 13, kind="message"),
+    ],
+    flows=[
+        Flow("Start_deeplink", "T_resolve"),
+        Flow("T_resolve", "T_capacity"),
+        Flow("T_capacity", "G_capacity"),
+        Flow("G_capacity", "T_card", "да"),
+        Flow("G_capacity", "T_waitlist", "нет"),
+        Flow("T_waitlist", "End_waitlist"),
+        Flow("T_card", "T_tap"),
+        Flow("T_tap", "G_profile"),
+        Flow("G_profile", "T_form", "нет"),
+        Flow("G_profile", "T_create", "да"),
+        Flow("T_form", "T_validate"),
+        Flow("T_validate", "G_valid"),
+        Flow("G_valid", "T_form", "нет, вернуть на правку"),
+        Flow("G_valid", "T_create", "да"),
+        Flow("T_create", "T_crm"),
+        Flow("T_crm", "T_ticket"),
+        Flow("T_ticket", "End_done"),
+    ],
+)
+
+reminders = Model(
+    id="event_reminders",
+    name="Автоматические напоминания о мероприятии",
+    pool_name="Напоминания за 24 ч и 1 ч до события",
+    documentation=(
+        "Планировщик раз в час отбирает подтверждённые заявки, попадающие "
+        "в окно напоминания, и рассылает сообщения с кнопками подтверждения. "
+        "Отказ освобождает место и запускает добор из листа ожидания."
+    ),
+    lanes=[
+        Lane("Lane_sched", "Планировщик", rows=2),
+        Lane("Lane_bot", "Telegram-бот", rows=1),
+        Lane("Lane_participant", "Участник", rows=1),
+    ],
+    nodes=[
+        Start("Start_tick", "Ежечасный запуск\nпо расписанию", "Lane_sched", 0, kind="timer"),
+        Task("T_select", "Отобрать заявки в окне\nT-24 ч и T-1 ч", "Lane_sched", 1, kind="service"),
+        Gateway("G_any", "Есть адресаты?", "Lane_sched", 2),
+        End("End_empty", "Рассылка не требуется", "Lane_sched", 3, row=1),
+        Task("T_queue", "Сформировать очередь\nс учётом лимитов Telegram", "Lane_sched", 3, kind="service"),
+        Task("T_send", "Отправить напоминание\nс кнопками «Буду» / «Не приду»", "Lane_bot", 4, kind="send"),
+        Task("T_answer", "Ответить на напоминание", "Lane_participant", 5, kind="user"),
+        Gateway("G_decline", "Участник отказался?", "Lane_bot", 6),
+        Task("T_release", "Освободить место и пригласить\nпервого из листа ожидания", "Lane_sched", 7, kind="service"),
+        Task("T_confirm", "Проставить статус\n«подтвердил» в CRM", "Lane_sched", 7, row=1, kind="service"),
+        End("End_released", "Место переиспользовано", "Lane_sched", 8),
+        End("End_confirmed", "Участие подтверждено", "Lane_sched", 8, row=1),
+    ],
+    flows=[
+        Flow("Start_tick", "T_select"),
+        Flow("T_select", "G_any"),
+        Flow("G_any", "T_queue", "да"),
+        Flow("G_any", "End_empty", "нет"),
+        Flow("T_queue", "T_send"),
+        Flow("T_send", "T_answer"),
+        Flow("T_answer", "G_decline"),
+        Flow("G_decline", "T_release", "да"),
+        Flow("G_decline", "T_confirm", "нет"),
+        Flow("T_release", "End_released"),
+        Flow("T_confirm", "End_confirmed"),
+    ],
+)
+
+nps = Model(
+    id="event_nps",
+    name="Пост-ивентный NPS-опрос",
+    pool_name="Сбор обратной связи после мероприятия",
+    documentation=(
+        "Через 2 часа после окончания события бот запрашивает оценку по шкале "
+        "0–10. Детракторы (0–6) получают уточняющий вопрос, ответы попадают "
+        "в сводный отчёт по мероприятиям."
+    ),
+    lanes=[
+        Lane("Lane_sched", "Планировщик", rows=1),
+        Lane("Lane_bot", "Telegram-бот", rows=2),
+        Lane("Lane_participant", "Участник", rows=1),
+        Lane("Lane_analytics", "Аналитический модуль", rows=1),
+    ],
+    nodes=[
+        Start("Start_after", "T+2 ч после\nокончания события", "Lane_sched", 0, kind="timer"),
+        Task("T_audience", "Отобрать участников\nсо статусом «пришёл»", "Lane_sched", 1, kind="service"),
+        Task("T_ask", "Отправить опрос:\nоценка 0–10", "Lane_bot", 2, kind="send"),
+        Task("T_rate", "Поставить оценку", "Lane_participant", 3, kind="user"),
+        Gateway("G_detractor", "Оценка ≤ 6?", "Lane_bot", 4),
+        Task("T_thanks", "Поблагодарить и предложить\nближайшее событие", "Lane_bot", 5, kind="send"),
+        Task("T_probe", "Запросить комментарий:\nчто улучшить", "Lane_bot", 5, row=1, kind="send"),
+        Task("T_comment", "Написать комментарий", "Lane_participant", 6, kind="user"),
+        Task("T_store", "Сохранить ответ\nи связать с мероприятием", "Lane_analytics", 7, kind="service"),
+        Task("T_recalc", "Пересчитать NPS\nи обновить сводный отчёт", "Lane_analytics", 8, kind="service"),
+        End("End_report", "Отчёт обновлён", "Lane_analytics", 9),
+    ],
+    flows=[
+        Flow("Start_after", "T_audience"),
+        Flow("T_audience", "T_ask"),
+        Flow("T_ask", "T_rate"),
+        Flow("T_rate", "G_detractor"),
+        Flow("G_detractor", "T_thanks", "нет"),
+        Flow("G_detractor", "T_probe", "да"),
+        Flow("T_probe", "T_comment"),
+        Flow("T_comment", "T_store"),
+        Flow("T_thanks", "T_store"),
+        Flow("T_store", "T_recalc"),
+        Flow("T_recalc", "End_report"),
+    ],
+)
+
+
+# --------------------------------------------------------------------------
+# Проект 2 — Сервис AI-озвучки
+# --------------------------------------------------------------------------
+
+dubbing = Model(
+    id="dubbing_pipeline",
+    name="Автоматический дубляж видео",
+    pool_name="Пайплайн AI-озвучки",
+    documentation=(
+        "Сквозной пайплайн STT → MT → фонетическая коррекция → TTS → сведение. "
+        "Автоматический контроль качества отсекает выпуски с рассинхроном "
+        "и высоким WER до публикации."
+    ),
+    lanes=[
+        Lane("Lane_producer", "Продюсер", rows=1),
+        Lane("Lane_orch", "Оркестратор пайплайна", rows=2),
+        Lane("Lane_ai", "AI-провайдеры (STT / MT / TTS)", rows=1),
+        Lane("Lane_host", "Видеохостинг", rows=1),
+    ],
+    nodes=[
+        Start("Start_task", "Поставлена задача\nна дубляж", "Lane_producer", 0, kind="message"),
+        Task("T_pick", "Выбрать видео\nи целевые языки", "Lane_producer", 1, kind="user"),
+        Task("T_fetch", "Скачать исходник\nчерез API хостинга", "Lane_orch", 2, kind="service"),
+        Task("T_demux", "Извлечь аудио (FFmpeg)\nи нормализовать уровень", "Lane_orch", 3, kind="service"),
+        Task("T_stt", "Распознать речь\nи тайм-коды (STT)", "Lane_ai", 4, kind="service"),
+        Task("T_mt", "Перевести транскрипт\nна целевой язык", "Lane_ai", 5, kind="service"),
+        Task("T_phonetic", "Применить глоссарий\nи фонетическую коррекцию", "Lane_orch", 6, kind="service"),
+        Task("T_tts", "Синтезировать речь (TTS)\nпо тайм-кодам", "Lane_ai", 7, kind="service"),
+        Task("T_mix", "Свести дорожку: длительность,\nгромкость, фон", "Lane_orch", 8, kind="service"),
+        Task("T_qc", "Автоконтроль: WER,\nрассинхрон, клиппинг", "Lane_orch", 9, kind="service"),
+        Gateway("G_qc", "Метрики в допуске?", "Lane_orch", 10),
+        Task("T_rework", "Создать задачу\nна ручную правку", "Lane_orch", 11, row=1, kind="service"),
+        End("End_rework", "Передано редактору", "Lane_orch", 12, row=1, kind="message"),
+        Task("T_upload", "Загрузить дорожку\nи заменить аудио", "Lane_host", 11, kind="service"),
+        Task("T_notify", "Уведомить продюсера\nо готовности", "Lane_orch", 12, kind="send"),
+        End("End_published", "Дубляж опубликован", "Lane_producer", 13),
+    ],
+    flows=[
+        Flow("Start_task", "T_pick"),
+        Flow("T_pick", "T_fetch"),
+        Flow("T_fetch", "T_demux"),
+        Flow("T_demux", "T_stt"),
+        Flow("T_stt", "T_mt"),
+        Flow("T_mt", "T_phonetic"),
+        Flow("T_phonetic", "T_tts"),
+        Flow("T_tts", "T_mix"),
+        Flow("T_mix", "T_qc"),
+        Flow("T_qc", "G_qc"),
+        Flow("G_qc", "T_upload", "да"),
+        Flow("G_qc", "T_rework", "нет"),
+        Flow("T_rework", "End_rework"),
+        Flow("T_upload", "T_notify"),
+        Flow("T_notify", "End_published"),
+    ],
+)
+
+editor_review = Model(
+    id="dubbing_review",
+    name="Ручная правка и приёмка озвучки",
+    pool_name="Редактирование и контроль качества дубляжа",
+    documentation=(
+        "Процесс запускается, когда автоконтроль отклонил выпуск. Редактор "
+        "правит причину дефекта, пересинтезируются только затронутые сегменты, "
+        "приёмка идёт по MOS-тесту."
+    ),
+    lanes=[
+        Lane("Lane_editor", "Технический редактор", rows=3),
+        Lane("Lane_orch", "Оркестратор пайплайна", rows=2),
+        Lane("Lane_producer", "Продюсер", rows=1),
+    ],
+    nodes=[
+        Start("Start_rework", "Поступила задача\nна правку", "Lane_editor", 0, kind="message"),
+        Task("T_listen", "Прослушать сегменты\nс низкой метрикой", "Lane_editor", 1, kind="user"),
+        Gateway("G_defect", "Тип дефекта?", "Lane_editor", 2),
+        Task("T_fix_text", "Исправить перевод\nи глоссарий терминов", "Lane_editor", 3, kind="user"),
+        Task("T_fix_phon", "Задать транскрипцию\n(SSML / фонемы)", "Lane_editor", 3, row=1, kind="user"),
+        Task("T_fix_time", "Скорректировать тайм-коды\nи темп речи", "Lane_editor", 3, row=2, kind="user"),
+        Task("T_resynth", "Пересинтезировать\nтолько изменённые сегменты", "Lane_orch", 4, kind="service"),
+        Task("T_remix", "Пересобрать дорожку\nи обновить превью", "Lane_orch", 5, kind="service"),
+        Task("T_mos", "Собрать оценки MOS\nна выборке сегментов", "Lane_editor", 6, kind="user"),
+        Gateway("G_mos", "MOS ≥ 4.0?", "Lane_editor", 7),
+        Task("T_escalate", "Сменить голос / провайдера\nи перезапустить пайплайн", "Lane_orch", 8, row=1, kind="service"),
+        End("End_escalated", "Требуется смена\nконфигурации", "Lane_orch", 9, row=1),
+        Task("T_accept", "Согласовать\nфинальную дорожку", "Lane_producer", 8, kind="user"),
+        Task("T_publish", "Опубликовать\nпринятую версию", "Lane_orch", 9, kind="service"),
+        End("End_accepted", "Дубляж принят", "Lane_producer", 10),
+    ],
+    flows=[
+        Flow("Start_rework", "T_listen"),
+        Flow("T_listen", "G_defect"),
+        Flow("G_defect", "T_fix_text", "перевод"),
+        Flow("G_defect", "T_fix_phon", "произношение"),
+        Flow("G_defect", "T_fix_time", "тайминг"),
+        Flow("T_fix_text", "T_resynth"),
+        Flow("T_fix_phon", "T_resynth"),
+        Flow("T_fix_time", "T_resynth"),
+        Flow("T_resynth", "T_remix"),
+        Flow("T_remix", "T_mos"),
+        Flow("T_mos", "G_mos"),
+        Flow("G_mos", "T_accept", "да"),
+        Flow("G_mos", "T_escalate", "нет"),
+        Flow("T_escalate", "End_escalated"),
+        Flow("T_accept", "T_publish"),
+        Flow("T_publish", "End_accepted"),
+    ],
+)
+
+
+# --------------------------------------------------------------------------
+# Проект 3 — Анонимизатор медицинских данных
+# --------------------------------------------------------------------------
+
+anonymization = Model(
+    id="phi_anonymization",
+    name="Обезличивание медицинского документа",
+    pool_name="Сервис обезличивания ПДн",
+    documentation=(
+        "Документ приходит из МИС по защищённому каналу. Пайплайн распознаёт "
+        "и маскирует ПДн, контрольный прогон ищет остаточные идентификаторы, "
+        "любое действие фиксируется в неизменяемом аудит-логе."
+    ),
+    lanes=[
+        Lane("Lane_mis", "МИС (система-источник)", rows=1),
+        Lane("Lane_api", "API-шлюз", rows=2),
+        Lane("Lane_nlp", "NLP-пайплайн", rows=1),
+        Lane("Lane_dpo", "Оператор ПДн", rows=2),
+        Lane("Lane_store", "Хранилище и аудит", rows=1),
+    ],
+    nodes=[
+        Start("Start_doc", "Документ отправлен\nна обезличивание", "Lane_mis", 0, kind="message"),
+        Task("T_auth", "Аутентифицировать запрос:\nmTLS, токен, схема", "Lane_api", 1, kind="service"),
+        Gateway("G_auth", "Запрос легитимен?", "Lane_api", 2),
+        Task("T_reject", "Вернуть 403\nи зафиксировать инцидент", "Lane_api", 3, row=1, kind="service"),
+        End("End_rejected", "Запрос отклонён", "Lane_api", 4, row=1, kind="error"),
+        Task("T_extract", "Извлечь текст:\nPDF / DOCX / HL7 / FHIR", "Lane_nlp", 3, kind="service"),
+        Task("T_ner", "Распознать ПДн: ФИО, даты,\nадреса, СНИЛС, полис", "Lane_nlp", 4, kind="service"),
+        Task("T_classify", "Классифицировать по ФЗ-152\nи HIPAA Safe Harbor", "Lane_nlp", 5, kind="service"),
+        Gateway("G_conf", "Уверенность ≥ порога?", "Lane_nlp", 6),
+        Task("T_manual", "Верифицировать разметку\nвручную", "Lane_dpo", 7, kind="user"),
+        Task("T_mask", "Маскировать и псевдонимизировать,\nсохранить токен-мапу", "Lane_nlp", 8, kind="service"),
+        Task("T_recheck", "Контрольный прогон:\nпоиск остаточных ПДн", "Lane_nlp", 9, kind="service"),
+        Gateway("G_residual", "Найдены остаточные ПДн?", "Lane_nlp", 10),
+        Task("T_quarantine", "Отправить в карантин\nна ручную обработку", "Lane_dpo", 11, row=1, kind="user"),
+        End("End_quarantine", "Документ в карантине", "Lane_dpo", 12, row=1),
+        Task("T_store", "Сохранить документ и токен-мапу\nв раздельных контурах", "Lane_store", 11, kind="service"),
+        Task("T_audit", "Записать событие\nв неизменяемый аудит-лог", "Lane_store", 12, kind="service"),
+        Task("T_return", "Вернуть обезличенный\nдокумент в МИС", "Lane_api", 13, kind="send"),
+        End("End_done", "Документ обезличен", "Lane_mis", 14, kind="message"),
+    ],
+    flows=[
+        Flow("Start_doc", "T_auth"),
+        Flow("T_auth", "G_auth"),
+        Flow("G_auth", "T_extract", "да"),
+        Flow("G_auth", "T_reject", "нет"),
+        Flow("T_reject", "End_rejected"),
+        Flow("T_extract", "T_ner"),
+        Flow("T_ner", "T_classify"),
+        Flow("T_classify", "G_conf"),
+        Flow("G_conf", "T_mask", "да"),
+        Flow("G_conf", "T_manual", "нет"),
+        Flow("T_manual", "T_mask"),
+        Flow("T_mask", "T_recheck"),
+        Flow("T_recheck", "G_residual"),
+        Flow("G_residual", "T_store", "нет"),
+        Flow("G_residual", "T_quarantine", "да"),
+        Flow("T_quarantine", "End_quarantine"),
+        Flow("T_store", "T_audit"),
+        Flow("T_audit", "T_return"),
+        Flow("T_return", "End_done"),
+    ],
+)
+
+reidentification = Model(
+    id="phi_reidentification",
+    name="Обратная идентификация по обоснованному запросу",
+    pool_name="Раскрытие обезличенных данных",
+    documentation=(
+        "Единственный легальный путь связать обезличенный документ с субъектом. "
+        "Требует правового основания и согласования двумя ролями (принцип «четырёх глаз»), "
+        "выдача ограничена по TTL и полностью логируется."
+    ),
+    lanes=[
+        Lane("Lane_req", "Инициатор запроса", rows=1),
+        Lane("Lane_dpo", "Оператор ПДн", rows=2),
+        Lane("Lane_svc", "Сервис деанонимизации", rows=1),
+        Lane("Lane_audit", "Аудит", rows=1),
+    ],
+    nodes=[
+        Start("Start_req", "Поступил запрос\nна раскрытие", "Lane_req", 0, kind="message"),
+        Task("T_form", "Указать правовое основание\nи перечень полей", "Lane_req", 1, kind="user"),
+        Task("T_check", "Проверить основание\nи полномочия заявителя", "Lane_dpo", 2, kind="user"),
+        Gateway("G_basis", "Основание достаточно?", "Lane_dpo", 3),
+        Task("T_deny", "Отклонить запрос\nс мотивировкой", "Lane_dpo", 4, row=1, kind="send"),
+        End("End_denied", "Запрос отклонён", "Lane_dpo", 5, row=1),
+        Task("T_approve", "Согласовать раскрытие\nвторым approver", "Lane_dpo", 4, kind="user"),
+        Gateway("G_approve", "Второе согласование\nполучено?", "Lane_dpo", 5),
+        End("End_noapprove", "Раскрытие\nне согласовано", "Lane_dpo", 6, row=1),
+        Task("T_reveal", "Раскрыть токен-мапу\nтолько по указанным полям", "Lane_svc", 6, kind="service"),
+        Task("T_ttl", "Сформировать выдачу\nс ограниченным TTL", "Lane_svc", 7, kind="service"),
+        Task("T_log", "Зафиксировать: кто, что,\nзачем, когда", "Lane_audit", 8, kind="service"),
+        Task("T_deliver", "Передать данные\nпо защищённому каналу", "Lane_svc", 9, kind="send"),
+        End("End_revealed", "Данные раскрыты\nи зафиксированы", "Lane_req", 10),
+    ],
+    flows=[
+        Flow("Start_req", "T_form"),
+        Flow("T_form", "T_check"),
+        Flow("T_check", "G_basis"),
+        Flow("G_basis", "T_approve", "да"),
+        Flow("G_basis", "T_deny", "нет"),
+        Flow("T_deny", "End_denied"),
+        Flow("T_approve", "G_approve"),
+        Flow("G_approve", "T_reveal", "да"),
+        Flow("G_approve", "End_noapprove", "нет"),
+        Flow("T_reveal", "T_ttl"),
+        Flow("T_ttl", "T_log"),
+        Flow("T_log", "T_deliver"),
+        Flow("T_deliver", "End_revealed"),
+    ],
+)
+
+
+TARGETS = [
+    ("01-telegram-event-bot", "01-registration.bpmn", registration),
+    ("01-telegram-event-bot", "02-reminders.bpmn", reminders),
+    ("01-telegram-event-bot", "03-nps-survey.bpmn", nps),
+    ("02-ai-dubbing", "01-dubbing-pipeline.bpmn", dubbing),
+    ("02-ai-dubbing", "02-editor-review.bpmn", editor_review),
+    ("03-medical-anonymizer", "01-anonymization.bpmn", anonymization),
+    ("03-medical-anonymizer", "02-reidentification.bpmn", reidentification),
+]
+
+
+def inject_previews(project: str, blocks: dict[str, str]) -> None:
+    """Подставляет mermaid-превью в bpmn.md между маркерами <!-- diagram:slug -->."""
+    doc = ROOT / "projects" / project / "bpmn.md"
+    if not doc.exists():
+        return
+    text = doc.read_text(encoding="utf-8")
+    for slug, mermaid in blocks.items():
+        pattern = re.compile(
+            rf"<!-- diagram:{re.escape(slug)} -->.*?<!-- /diagram -->",
+            re.DOTALL,
+        )
+        if not pattern.search(text):
+            continue
+        block = (
+            f"<!-- diagram:{slug} -->\n"
+            f"```mermaid\n{mermaid}\n```\n"
+            "<!-- /diagram -->"
+        )
+        text = pattern.sub(lambda _: block, text, count=1)
+    doc.write_text(text, encoding="utf-8")
+
+
+def main() -> None:
+    previews: dict[str, dict[str, str]] = {}
+    for project, filename, model in TARGETS:
+        out_dir = ROOT / "projects" / project / "diagrams"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        slug = filename.removesuffix(".bpmn")
+
+        (out_dir / filename).write_text(render(model), encoding="utf-8")
+        mermaid = to_mermaid(model)
+        (out_dir / f"{slug}.mmd").write_text(mermaid + "\n", encoding="utf-8")
+        previews.setdefault(project, {})[slug] = mermaid
+
+        print(f"projects/{project}/diagrams/{filename}  —  "
+              f"{len(model.nodes)} элементов, {len(model.flows)} связей")
+
+    for project, blocks in previews.items():
+        inject_previews(project, blocks)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,47 @@
+flowchart LR
+    subgraph Lane_sched["Планировщик"]
+        direction LR
+        Start_after(("T+2 ч после<br/>окончания события"))
+        T_audience["Отобрать участников<br/>со статусом «пришёл»"]
+    end
+    subgraph Lane_bot["Telegram-бот"]
+        direction LR
+        T_ask["Отправить опрос:<br/>оценка 0–10"]
+        G_detractor{"Оценка ≤ 6?"}
+        T_thanks["Поблагодарить и предложить<br/>ближайшее событие"]
+        T_probe["Запросить комментарий:<br/>что улучшить"]
+    end
+    subgraph Lane_participant["Участник"]
+        direction LR
+        T_rate["Поставить оценку"]
+        T_comment["Написать комментарий"]
+    end
+    subgraph Lane_analytics["Аналитический модуль"]
+        direction LR
+        T_store["Сохранить ответ<br/>и связать с мероприятием"]
+        T_recalc["Пересчитать NPS<br/>и обновить сводный отчёт"]
+        End_report(("Отчёт обновлён"))
+    end
+    Start_after --> T_audience
+    T_audience --> T_ask
+    T_ask --> T_rate
+    T_rate --> G_detractor
+    G_detractor -- "нет" --> T_thanks
+    G_detractor -- "да" --> T_probe
+    T_probe --> T_comment
+    T_comment --> T_store
+    T_thanks --> T_store
+    T_store --> T_recalc
+    T_recalc --> End_report
+    classDef evStart fill:#1f7a3f,stroke:#0f4523,color:#ffffff
+    classDef evEnd fill:#8a1f1f,stroke:#4a0f0f,color:#ffffff
+    classDef gw fill:#e0a800,stroke:#8a6800,color:#1a1a1a
+    classDef userTask fill:#2b5d8a,stroke:#143349,color:#ffffff
+    classDef svcTask fill:#3a3f4b,stroke:#1b1e24,color:#ffffff
+    classDef msgTask fill:#5a3a7a,stroke:#2e1c40,color:#ffffff
+    class Start_after evStart
+    class T_audience,T_store,T_recalc svcTask
+    class T_ask,T_thanks,T_probe msgTask
+    class T_rate,T_comment userTask
+    class G_detractor gw
+    class End_report evEnd

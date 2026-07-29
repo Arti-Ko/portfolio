@@ -1,0 +1,56 @@
+flowchart LR
+    subgraph Lane_producer["Продюсер"]
+        direction LR
+        Start_task(("Поставлена задача<br/>на дубляж"))
+        T_pick["Выбрать видео<br/>и целевые языки"]
+        End_published(("Дубляж опубликован"))
+    end
+    subgraph Lane_orch["Оркестратор пайплайна"]
+        direction LR
+        T_fetch["Скачать исходник<br/>через API хостинга"]
+        T_demux["Извлечь аудио (FFmpeg)<br/>и нормализовать уровень"]
+        T_phonetic["Применить глоссарий<br/>и фонетическую коррекцию"]
+        T_mix["Свести дорожку: длительность,<br/>громкость, фон"]
+        T_qc["Автоконтроль: WER,<br/>рассинхрон, клиппинг"]
+        G_qc{"Метрики в допуске?"}
+        T_rework["Создать задачу<br/>на ручную правку"]
+        T_notify["Уведомить продюсера<br/>о готовности"]
+        End_rework(("Передано редактору"))
+    end
+    subgraph Lane_ai["AI-провайдеры (STT / MT / TTS)"]
+        direction LR
+        T_stt["Распознать речь<br/>и тайм-коды (STT)"]
+        T_mt["Перевести транскрипт<br/>на целевой язык"]
+        T_tts["Синтезировать речь (TTS)<br/>по тайм-кодам"]
+    end
+    subgraph Lane_host["Видеохостинг"]
+        direction LR
+        T_upload["Загрузить дорожку<br/>и заменить аудио"]
+    end
+    Start_task --> T_pick
+    T_pick --> T_fetch
+    T_fetch --> T_demux
+    T_demux --> T_stt
+    T_stt --> T_mt
+    T_mt --> T_phonetic
+    T_phonetic --> T_tts
+    T_tts --> T_mix
+    T_mix --> T_qc
+    T_qc --> G_qc
+    G_qc -- "да" --> T_upload
+    G_qc -- "нет" --> T_rework
+    T_rework --> End_rework
+    T_upload --> T_notify
+    T_notify --> End_published
+    classDef evStart fill:#1f7a3f,stroke:#0f4523,color:#ffffff
+    classDef evEnd fill:#8a1f1f,stroke:#4a0f0f,color:#ffffff
+    classDef gw fill:#e0a800,stroke:#8a6800,color:#1a1a1a
+    classDef userTask fill:#2b5d8a,stroke:#143349,color:#ffffff
+    classDef svcTask fill:#3a3f4b,stroke:#1b1e24,color:#ffffff
+    classDef msgTask fill:#5a3a7a,stroke:#2e1c40,color:#ffffff
+    class Start_task evStart
+    class T_pick userTask
+    class T_fetch,T_demux,T_stt,T_mt,T_phonetic,T_tts,T_mix,T_qc,T_rework,T_upload svcTask
+    class G_qc gw
+    class End_rework,End_published evEnd
+    class T_notify msgTask

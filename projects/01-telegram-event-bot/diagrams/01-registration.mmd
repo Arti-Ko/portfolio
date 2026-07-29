@@ -1,0 +1,58 @@
+flowchart LR
+    subgraph Lane_participant["Участник"]
+        direction LR
+        Start_deeplink(("Переход по deep link<br/>/start event_id"))
+        T_tap["Нажать<br/>«Зарегистрироваться»"]
+        T_form["Заполнить анкету:<br/>ФИО, e-mail, телефон"]
+        End_done(("Регистрация завершена"))
+    end
+    subgraph Lane_bot["Telegram-бот (FSM)"]
+        direction LR
+        T_resolve["Определить мероприятие<br/>по deep link"]
+        T_card["Показать карточку события<br/>и кнопку «Зарегистрироваться»"]
+        T_waitlist["Предложить<br/>лист ожидания"]
+        End_waitlist(("Заявка в листе ожидания"))
+        G_profile{"Профиль заполнен?"}
+        T_ticket["Отправить билет с QR-кодом<br/>и файл календаря"]
+    end
+    subgraph Lane_core["Сервис регистрации"]
+        direction LR
+        T_capacity["Проверить свободные места<br/>и дедлайн регистрации"]
+        G_capacity{"Есть свободные места?"}
+        T_validate["Валидировать поля<br/>и проверить дубли"]
+        G_valid{"Данные корректны?"}
+        T_create["Создать заявку<br/>и забронировать место"]
+    end
+    subgraph Lane_ext["Внешние системы"]
+        direction LR
+        T_crm["Записать участника<br/>в Google Sheets / Airtable"]
+    end
+    Start_deeplink --> T_resolve
+    T_resolve --> T_capacity
+    T_capacity --> G_capacity
+    G_capacity -- "да" --> T_card
+    G_capacity -- "нет" --> T_waitlist
+    T_waitlist --> End_waitlist
+    T_card --> T_tap
+    T_tap --> G_profile
+    G_profile -- "нет" --> T_form
+    G_profile -- "да" --> T_create
+    T_form --> T_validate
+    T_validate --> G_valid
+    G_valid -- "нет, вернуть на правку" --> T_form
+    G_valid -- "да" --> T_create
+    T_create --> T_crm
+    T_crm --> T_ticket
+    T_ticket --> End_done
+    classDef evStart fill:#1f7a3f,stroke:#0f4523,color:#ffffff
+    classDef evEnd fill:#8a1f1f,stroke:#4a0f0f,color:#ffffff
+    classDef gw fill:#e0a800,stroke:#8a6800,color:#1a1a1a
+    classDef userTask fill:#2b5d8a,stroke:#143349,color:#ffffff
+    classDef svcTask fill:#3a3f4b,stroke:#1b1e24,color:#ffffff
+    classDef msgTask fill:#5a3a7a,stroke:#2e1c40,color:#ffffff
+    class Start_deeplink evStart
+    class T_resolve,T_capacity,T_validate,T_create,T_crm svcTask
+    class G_capacity,G_profile,G_valid gw
+    class T_card,T_waitlist,T_ticket msgTask
+    class End_waitlist,End_done evEnd
+    class T_tap,T_form userTask

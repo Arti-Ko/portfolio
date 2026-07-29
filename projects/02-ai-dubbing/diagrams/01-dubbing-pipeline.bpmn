@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="Definitions_dubbing_pipeline"
+                  targetNamespace="http://bpmn.io/schema/bpmn"
+                  exporter="sa-portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
+  <bpmn:collaboration id="Collaboration_dubbing_pipeline">
+    <bpmn:participant id="Participant_dubbing_pipeline" name="Пайплайн AI-озвучки" processRef="Process_dubbing_pipeline" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_dubbing_pipeline" name="Автоматический дубляж видео" isExecutable="false">
+    <bpmn:documentation>Сквозной пайплайн STT → MT → фонетическая коррекция → TTS → сведение. Автоматический контроль качества отсекает выпуски с рассинхроном и высоким WER до публикации.</bpmn:documentation>
+    <bpmn:laneSet id="LaneSet_dubbing_pipeline">
+      <bpmn:lane id="Lane_producer" name="Продюсер">
+        <bpmn:flowNodeRef>Start_task</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_pick</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_published</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_orch" name="Оркестратор пайплайна">
+        <bpmn:flowNodeRef>T_fetch</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_demux</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_phonetic</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_mix</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_qc</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_qc</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_rework</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_rework</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_notify</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_ai" name="AI-провайдеры (STT / MT / TTS)">
+        <bpmn:flowNodeRef>T_stt</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_mt</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_tts</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_host" name="Видеохостинг">
+        <bpmn:flowNodeRef>T_upload</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+      <bpmn:startEvent id="Start_task" name="Поставлена задача
+на дубляж">
+        <bpmn:outgoing>Flow_01</bpmn:outgoing>
+        <bpmn:messageEventDefinition />
+      </bpmn:startEvent>
+      <bpmn:userTask id="T_pick" name="Выбрать видео
+и целевые языки">
+        <bpmn:incoming>Flow_01</bpmn:incoming>
+        <bpmn:outgoing>Flow_02</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:serviceTask id="T_fetch" name="Скачать исходник
+через API хостинга">
+        <bpmn:incoming>Flow_02</bpmn:incoming>
+        <bpmn:outgoing>Flow_03</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_demux" name="Извлечь аудио (FFmpeg)
+и нормализовать уровень">
+        <bpmn:incoming>Flow_03</bpmn:incoming>
+        <bpmn:outgoing>Flow_04</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_stt" name="Распознать речь
+и тайм-коды (STT)">
+        <bpmn:incoming>Flow_04</bpmn:incoming>
+        <bpmn:outgoing>Flow_05</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_mt" name="Перевести транскрипт
+на целевой язык">
+        <bpmn:incoming>Flow_05</bpmn:incoming>
+        <bpmn:outgoing>Flow_06</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_phonetic" name="Применить глоссарий
+и фонетическую коррекцию">
+        <bpmn:incoming>Flow_06</bpmn:incoming>
+        <bpmn:outgoing>Flow_07</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_tts" name="Синтезировать речь (TTS)
+по тайм-кодам">
+        <bpmn:incoming>Flow_07</bpmn:incoming>
+        <bpmn:outgoing>Flow_08</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_mix" name="Свести дорожку: длительность,
+громкость, фон">
+        <bpmn:incoming>Flow_08</bpmn:incoming>
+        <bpmn:outgoing>Flow_09</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_qc" name="Автоконтроль: WER,
+рассинхрон, клиппинг">
+        <bpmn:incoming>Flow_09</bpmn:incoming>
+        <bpmn:outgoing>Flow_10</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:exclusiveGateway id="G_qc" name="Метрики в допуске?">
+        <bpmn:incoming>Flow_10</bpmn:incoming>
+        <bpmn:outgoing>Flow_11</bpmn:outgoing>
+        <bpmn:outgoing>Flow_12</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:serviceTask id="T_rework" name="Создать задачу
+на ручную правку">
+        <bpmn:incoming>Flow_12</bpmn:incoming>
+        <bpmn:outgoing>Flow_13</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="End_rework" name="Передано редактору">
+        <bpmn:incoming>Flow_13</bpmn:incoming>
+        <bpmn:messageEventDefinition />
+      </bpmn:endEvent>
+      <bpmn:serviceTask id="T_upload" name="Загрузить дорожку
+и заменить аудио">
+        <bpmn:incoming>Flow_11</bpmn:incoming>
+        <bpmn:outgoing>Flow_14</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:sendTask id="T_notify" name="Уведомить продюсера
+о готовности">
+        <bpmn:incoming>Flow_14</bpmn:incoming>
+        <bpmn:outgoing>Flow_15</bpmn:outgoing>
+      </bpmn:sendTask>
+      <bpmn:endEvent id="End_published" name="Дубляж опубликован">
+        <bpmn:incoming>Flow_15</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_01" sourceRef="Start_task" targetRef="T_pick" />
+      <bpmn:sequenceFlow id="Flow_02" sourceRef="T_pick" targetRef="T_fetch" />
+      <bpmn:sequenceFlow id="Flow_03" sourceRef="T_fetch" targetRef="T_demux" />
+      <bpmn:sequenceFlow id="Flow_04" sourceRef="T_demux" targetRef="T_stt" />
+      <bpmn:sequenceFlow id="Flow_05" sourceRef="T_stt" targetRef="T_mt" />
+      <bpmn:sequenceFlow id="Flow_06" sourceRef="T_mt" targetRef="T_phonetic" />
+      <bpmn:sequenceFlow id="Flow_07" sourceRef="T_phonetic" targetRef="T_tts" />
+      <bpmn:sequenceFlow id="Flow_08" sourceRef="T_tts" targetRef="T_mix" />
+      <bpmn:sequenceFlow id="Flow_09" sourceRef="T_mix" targetRef="T_qc" />
+      <bpmn:sequenceFlow id="Flow_10" sourceRef="T_qc" targetRef="G_qc" />
+      <bpmn:sequenceFlow id="Flow_11" name="да" sourceRef="G_qc" targetRef="T_upload" />
+      <bpmn:sequenceFlow id="Flow_12" name="нет" sourceRef="G_qc" targetRef="T_rework" />
+      <bpmn:sequenceFlow id="Flow_13" sourceRef="T_rework" targetRef="End_rework" />
+      <bpmn:sequenceFlow id="Flow_14" sourceRef="T_upload" targetRef="T_notify" />
+      <bpmn:sequenceFlow id="Flow_15" sourceRef="T_notify" targetRef="End_published" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_dubbing_pipeline">
+    <bpmndi:BPMNPlane id="Plane_dubbing_pipeline" bpmnElement="Collaboration_dubbing_pipeline">
+      <bpmndi:BPMNShape id="Shape_Participant_dubbing_pipeline" bpmnElement="Participant_dubbing_pipeline" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="2730" height="850" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_producer" bpmnElement="Lane_producer" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="2700" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_orch" bpmnElement="Lane_orch" isHorizontal="true">
+        <dc:Bounds x="190" y="260" width="2700" height="310" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_ai" bpmnElement="Lane_ai" isHorizontal="true">
+        <dc:Bounds x="190" y="570" width="2700" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_host" bpmnElement="Lane_host" isHorizontal="true">
+        <dc:Bounds x="190" y="750" width="2700" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Start_task" bpmnElement="Start_task">
+        <dc:Bounds x="267" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="232" y="194" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_pick" bpmnElement="T_pick">
+        <dc:Bounds x="415" y="130" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_fetch" bpmnElement="T_fetch">
+        <dc:Bounds x="605" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_demux" bpmnElement="T_demux">
+        <dc:Bounds x="795" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_stt" bpmnElement="T_stt">
+        <dc:Bounds x="985" y="620" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_mt" bpmnElement="T_mt">
+        <dc:Bounds x="1175" y="620" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_phonetic" bpmnElement="T_phonetic">
+        <dc:Bounds x="1365" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_tts" bpmnElement="T_tts">
+        <dc:Bounds x="1555" y="620" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_mix" bpmnElement="T_mix">
+        <dc:Bounds x="1745" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_qc" bpmnElement="T_qc">
+        <dc:Bounds x="1935" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_G_qc" bpmnElement="G_qc">
+        <dc:Bounds x="2160" y="325" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2125" y="381" width="120" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_rework" bpmnElement="T_rework">
+        <dc:Bounds x="2315" y="440" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_rework" bpmnElement="End_rework">
+        <dc:Bounds x="2547" y="462" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2512" y="504" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_upload" bpmnElement="T_upload">
+        <dc:Bounds x="2315" y="800" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_notify" bpmnElement="T_notify">
+        <dc:Bounds x="2505" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_published" bpmnElement="End_published">
+        <dc:Bounds x="2737" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2702" y="194" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_Flow_01" bpmnElement="Flow_01">
+        <di:waypoint x="303" y="170" />
+        <di:waypoint x="415" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_02" bpmnElement="Flow_02">
+        <di:waypoint x="535" y="170" />
+        <di:waypoint x="570" y="170" />
+        <di:waypoint x="570" y="350" />
+        <di:waypoint x="605" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_03" bpmnElement="Flow_03">
+        <di:waypoint x="725" y="350" />
+        <di:waypoint x="795" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_04" bpmnElement="Flow_04">
+        <di:waypoint x="915" y="350" />
+        <di:waypoint x="950" y="350" />
+        <di:waypoint x="950" y="660" />
+        <di:waypoint x="985" y="660" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_05" bpmnElement="Flow_05">
+        <di:waypoint x="1105" y="660" />
+        <di:waypoint x="1175" y="660" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_06" bpmnElement="Flow_06">
+        <di:waypoint x="1295" y="660" />
+        <di:waypoint x="1330" y="660" />
+        <di:waypoint x="1330" y="350" />
+        <di:waypoint x="1365" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_07" bpmnElement="Flow_07">
+        <di:waypoint x="1485" y="350" />
+        <di:waypoint x="1520" y="350" />
+        <di:waypoint x="1520" y="660" />
+        <di:waypoint x="1555" y="660" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_08" bpmnElement="Flow_08">
+        <di:waypoint x="1675" y="660" />
+        <di:waypoint x="1710" y="660" />
+        <di:waypoint x="1710" y="350" />
+        <di:waypoint x="1745" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_09" bpmnElement="Flow_09">
+        <di:waypoint x="1865" y="350" />
+        <di:waypoint x="1935" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_10" bpmnElement="Flow_10">
+        <di:waypoint x="2055" y="350" />
+        <di:waypoint x="2160" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_11" bpmnElement="Flow_11">
+        <di:waypoint x="2210" y="350" />
+        <di:waypoint x="2262" y="350" />
+        <di:waypoint x="2262" y="840" />
+        <di:waypoint x="2315" y="840" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2242" y="816" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_12" bpmnElement="Flow_12">
+        <di:waypoint x="2210" y="350" />
+        <di:waypoint x="2262" y="350" />
+        <di:waypoint x="2262" y="480" />
+        <di:waypoint x="2315" y="480" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2242" y="456" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_13" bpmnElement="Flow_13">
+        <di:waypoint x="2435" y="480" />
+        <di:waypoint x="2547" y="480" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_14" bpmnElement="Flow_14">
+        <di:waypoint x="2435" y="840" />
+        <di:waypoint x="2470" y="840" />
+        <di:waypoint x="2470" y="350" />
+        <di:waypoint x="2505" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_15" bpmnElement="Flow_15">
+        <di:waypoint x="2625" y="350" />
+        <di:waypoint x="2681" y="350" />
+        <di:waypoint x="2681" y="170" />
+        <di:waypoint x="2737" y="170" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

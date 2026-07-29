@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="Definitions_phi_reidentification"
+                  targetNamespace="http://bpmn.io/schema/bpmn"
+                  exporter="sa-portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
+  <bpmn:collaboration id="Collaboration_phi_reidentification">
+    <bpmn:participant id="Participant_phi_reidentification" name="Раскрытие обезличенных данных" processRef="Process_phi_reidentification" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_phi_reidentification" name="Обратная идентификация по обоснованному запросу" isExecutable="false">
+    <bpmn:documentation>Единственный легальный путь связать обезличенный документ с субъектом. Требует правового основания и согласования двумя ролями (принцип «четырёх глаз»), выдача ограничена по TTL и полностью логируется.</bpmn:documentation>
+    <bpmn:laneSet id="LaneSet_phi_reidentification">
+      <bpmn:lane id="Lane_req" name="Инициатор запроса">
+        <bpmn:flowNodeRef>Start_req</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_form</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_revealed</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_dpo" name="Оператор ПДн">
+        <bpmn:flowNodeRef>T_check</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_basis</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_deny</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_denied</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_approve</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_approve</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_noapprove</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_svc" name="Сервис деанонимизации">
+        <bpmn:flowNodeRef>T_reveal</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_ttl</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_deliver</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_audit" name="Аудит">
+        <bpmn:flowNodeRef>T_log</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+      <bpmn:startEvent id="Start_req" name="Поступил запрос
+на раскрытие">
+        <bpmn:outgoing>Flow_01</bpmn:outgoing>
+        <bpmn:messageEventDefinition />
+      </bpmn:startEvent>
+      <bpmn:userTask id="T_form" name="Указать правовое основание
+и перечень полей">
+        <bpmn:incoming>Flow_01</bpmn:incoming>
+        <bpmn:outgoing>Flow_02</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:userTask id="T_check" name="Проверить основание
+и полномочия заявителя">
+        <bpmn:incoming>Flow_02</bpmn:incoming>
+        <bpmn:outgoing>Flow_03</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:exclusiveGateway id="G_basis" name="Основание достаточно?">
+        <bpmn:incoming>Flow_03</bpmn:incoming>
+        <bpmn:outgoing>Flow_04</bpmn:outgoing>
+        <bpmn:outgoing>Flow_05</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:sendTask id="T_deny" name="Отклонить запрос
+с мотивировкой">
+        <bpmn:incoming>Flow_05</bpmn:incoming>
+        <bpmn:outgoing>Flow_06</bpmn:outgoing>
+      </bpmn:sendTask>
+      <bpmn:endEvent id="End_denied" name="Запрос отклонён">
+        <bpmn:incoming>Flow_06</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:userTask id="T_approve" name="Согласовать раскрытие
+вторым approver">
+        <bpmn:incoming>Flow_04</bpmn:incoming>
+        <bpmn:outgoing>Flow_07</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:exclusiveGateway id="G_approve" name="Второе согласование
+получено?">
+        <bpmn:incoming>Flow_07</bpmn:incoming>
+        <bpmn:outgoing>Flow_08</bpmn:outgoing>
+        <bpmn:outgoing>Flow_09</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:endEvent id="End_noapprove" name="Раскрытие
+не согласовано">
+        <bpmn:incoming>Flow_09</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:serviceTask id="T_reveal" name="Раскрыть токен-мапу
+только по указанным полям">
+        <bpmn:incoming>Flow_08</bpmn:incoming>
+        <bpmn:outgoing>Flow_10</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_ttl" name="Сформировать выдачу
+с ограниченным TTL">
+        <bpmn:incoming>Flow_10</bpmn:incoming>
+        <bpmn:outgoing>Flow_11</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_log" name="Зафиксировать: кто, что,
+зачем, когда">
+        <bpmn:incoming>Flow_11</bpmn:incoming>
+        <bpmn:outgoing>Flow_12</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:sendTask id="T_deliver" name="Передать данные
+по защищённому каналу">
+        <bpmn:incoming>Flow_12</bpmn:incoming>
+        <bpmn:outgoing>Flow_13</bpmn:outgoing>
+      </bpmn:sendTask>
+      <bpmn:endEvent id="End_revealed" name="Данные раскрыты
+и зафиксированы">
+        <bpmn:incoming>Flow_13</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_01" sourceRef="Start_req" targetRef="T_form" />
+      <bpmn:sequenceFlow id="Flow_02" sourceRef="T_form" targetRef="T_check" />
+      <bpmn:sequenceFlow id="Flow_03" sourceRef="T_check" targetRef="G_basis" />
+      <bpmn:sequenceFlow id="Flow_04" name="да" sourceRef="G_basis" targetRef="T_approve" />
+      <bpmn:sequenceFlow id="Flow_05" name="нет" sourceRef="G_basis" targetRef="T_deny" />
+      <bpmn:sequenceFlow id="Flow_06" sourceRef="T_deny" targetRef="End_denied" />
+      <bpmn:sequenceFlow id="Flow_07" sourceRef="T_approve" targetRef="G_approve" />
+      <bpmn:sequenceFlow id="Flow_08" name="да" sourceRef="G_approve" targetRef="T_reveal" />
+      <bpmn:sequenceFlow id="Flow_09" name="нет" sourceRef="G_approve" targetRef="End_noapprove" />
+      <bpmn:sequenceFlow id="Flow_10" sourceRef="T_reveal" targetRef="T_ttl" />
+      <bpmn:sequenceFlow id="Flow_11" sourceRef="T_ttl" targetRef="T_log" />
+      <bpmn:sequenceFlow id="Flow_12" sourceRef="T_log" targetRef="T_deliver" />
+      <bpmn:sequenceFlow id="Flow_13" sourceRef="T_deliver" targetRef="End_revealed" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_phi_reidentification">
+    <bpmndi:BPMNPlane id="Plane_phi_reidentification" bpmnElement="Collaboration_phi_reidentification">
+      <bpmndi:BPMNShape id="Shape_Participant_phi_reidentification" bpmnElement="Participant_phi_reidentification" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="2160" height="850" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_req" bpmnElement="Lane_req" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="2130" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_dpo" bpmnElement="Lane_dpo" isHorizontal="true">
+        <dc:Bounds x="190" y="260" width="2130" height="310" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_svc" bpmnElement="Lane_svc" isHorizontal="true">
+        <dc:Bounds x="190" y="570" width="2130" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_audit" bpmnElement="Lane_audit" isHorizontal="true">
+        <dc:Bounds x="190" y="750" width="2130" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Start_req" bpmnElement="Start_req">
+        <dc:Bounds x="267" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="232" y="194" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_form" bpmnElement="T_form">
+        <dc:Bounds x="415" y="130" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_check" bpmnElement="T_check">
+        <dc:Bounds x="605" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_G_basis" bpmnElement="G_basis">
+        <dc:Bounds x="830" y="325" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="795" y="381" width="120" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_deny" bpmnElement="T_deny">
+        <dc:Bounds x="985" y="440" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_denied" bpmnElement="End_denied">
+        <dc:Bounds x="1217" y="462" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1182" y="504" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_approve" bpmnElement="T_approve">
+        <dc:Bounds x="985" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_G_approve" bpmnElement="G_approve">
+        <dc:Bounds x="1210" y="325" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1175" y="381" width="120" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_noapprove" bpmnElement="End_noapprove">
+        <dc:Bounds x="1407" y="462" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1372" y="504" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_reveal" bpmnElement="T_reveal">
+        <dc:Bounds x="1365" y="620" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_ttl" bpmnElement="T_ttl">
+        <dc:Bounds x="1555" y="620" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_log" bpmnElement="T_log">
+        <dc:Bounds x="1745" y="800" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_deliver" bpmnElement="T_deliver">
+        <dc:Bounds x="1935" y="620" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_revealed" bpmnElement="End_revealed">
+        <dc:Bounds x="2167" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2132" y="194" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_Flow_01" bpmnElement="Flow_01">
+        <di:waypoint x="303" y="170" />
+        <di:waypoint x="415" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_02" bpmnElement="Flow_02">
+        <di:waypoint x="535" y="170" />
+        <di:waypoint x="570" y="170" />
+        <di:waypoint x="570" y="350" />
+        <di:waypoint x="605" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_03" bpmnElement="Flow_03">
+        <di:waypoint x="725" y="350" />
+        <di:waypoint x="830" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_04" bpmnElement="Flow_04">
+        <di:waypoint x="880" y="350" />
+        <di:waypoint x="985" y="350" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="965" y="326" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_05" bpmnElement="Flow_05">
+        <di:waypoint x="880" y="350" />
+        <di:waypoint x="932" y="350" />
+        <di:waypoint x="932" y="480" />
+        <di:waypoint x="985" y="480" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="912" y="456" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_06" bpmnElement="Flow_06">
+        <di:waypoint x="1105" y="480" />
+        <di:waypoint x="1217" y="480" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_07" bpmnElement="Flow_07">
+        <di:waypoint x="1105" y="350" />
+        <di:waypoint x="1210" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_08" bpmnElement="Flow_08">
+        <di:waypoint x="1260" y="350" />
+        <di:waypoint x="1312" y="350" />
+        <di:waypoint x="1312" y="660" />
+        <di:waypoint x="1365" y="660" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1292" y="636" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_09" bpmnElement="Flow_09">
+        <di:waypoint x="1260" y="350" />
+        <di:waypoint x="1333" y="350" />
+        <di:waypoint x="1333" y="480" />
+        <di:waypoint x="1407" y="480" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1313" y="456" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_10" bpmnElement="Flow_10">
+        <di:waypoint x="1485" y="660" />
+        <di:waypoint x="1555" y="660" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_11" bpmnElement="Flow_11">
+        <di:waypoint x="1675" y="660" />
+        <di:waypoint x="1710" y="660" />
+        <di:waypoint x="1710" y="840" />
+        <di:waypoint x="1745" y="840" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_12" bpmnElement="Flow_12">
+        <di:waypoint x="1865" y="840" />
+        <di:waypoint x="1900" y="840" />
+        <di:waypoint x="1900" y="660" />
+        <di:waypoint x="1935" y="660" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_13" bpmnElement="Flow_13">
+        <di:waypoint x="2055" y="660" />
+        <di:waypoint x="2111" y="660" />
+        <di:waypoint x="2111" y="170" />
+        <di:waypoint x="2167" y="170" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

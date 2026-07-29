@@ -1,0 +1,52 @@
+flowchart LR
+    subgraph Lane_req["Инициатор запроса"]
+        direction LR
+        Start_req(("Поступил запрос<br/>на раскрытие"))
+        T_form["Указать правовое основание<br/>и перечень полей"]
+        End_revealed(("Данные раскрыты<br/>и зафиксированы"))
+    end
+    subgraph Lane_dpo["Оператор ПДн"]
+        direction LR
+        T_check["Проверить основание<br/>и полномочия заявителя"]
+        G_basis{"Основание достаточно?"}
+        T_approve["Согласовать раскрытие<br/>вторым approver"]
+        T_deny["Отклонить запрос<br/>с мотивировкой"]
+        G_approve{"Второе согласование<br/>получено?"}
+        End_denied(("Запрос отклонён"))
+        End_noapprove(("Раскрытие<br/>не согласовано"))
+    end
+    subgraph Lane_svc["Сервис деанонимизации"]
+        direction LR
+        T_reveal["Раскрыть токен-мапу<br/>только по указанным полям"]
+        T_ttl["Сформировать выдачу<br/>с ограниченным TTL"]
+        T_deliver["Передать данные<br/>по защищённому каналу"]
+    end
+    subgraph Lane_audit["Аудит"]
+        direction LR
+        T_log["Зафиксировать: кто, что,<br/>зачем, когда"]
+    end
+    Start_req --> T_form
+    T_form --> T_check
+    T_check --> G_basis
+    G_basis -- "да" --> T_approve
+    G_basis -- "нет" --> T_deny
+    T_deny --> End_denied
+    T_approve --> G_approve
+    G_approve -- "да" --> T_reveal
+    G_approve -- "нет" --> End_noapprove
+    T_reveal --> T_ttl
+    T_ttl --> T_log
+    T_log --> T_deliver
+    T_deliver --> End_revealed
+    classDef evStart fill:#1f7a3f,stroke:#0f4523,color:#ffffff
+    classDef evEnd fill:#8a1f1f,stroke:#4a0f0f,color:#ffffff
+    classDef gw fill:#e0a800,stroke:#8a6800,color:#1a1a1a
+    classDef userTask fill:#2b5d8a,stroke:#143349,color:#ffffff
+    classDef svcTask fill:#3a3f4b,stroke:#1b1e24,color:#ffffff
+    classDef msgTask fill:#5a3a7a,stroke:#2e1c40,color:#ffffff
+    class Start_req evStart
+    class T_form,T_check,T_approve userTask
+    class G_basis,G_approve gw
+    class T_deny,T_deliver msgTask
+    class End_denied,End_noapprove,End_revealed evEnd
+    class T_reveal,T_ttl,T_log svcTask

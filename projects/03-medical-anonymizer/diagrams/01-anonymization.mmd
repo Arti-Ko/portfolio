@@ -1,0 +1,66 @@
+flowchart LR
+    subgraph Lane_mis["МИС (система-источник)"]
+        direction LR
+        Start_doc(("Документ отправлен<br/>на обезличивание"))
+        End_done(("Документ обезличен"))
+    end
+    subgraph Lane_api["API-шлюз"]
+        direction LR
+        T_auth["Аутентифицировать запрос:<br/>mTLS, токен, схема"]
+        G_auth{"Запрос легитимен?"}
+        T_reject["Вернуть 403<br/>и зафиксировать инцидент"]
+        End_rejected(("Запрос отклонён"))
+        T_return["Вернуть обезличенный<br/>документ в МИС"]
+    end
+    subgraph Lane_nlp["NLP-пайплайн"]
+        direction LR
+        T_extract["Извлечь текст:<br/>PDF / DOCX / HL7 / FHIR"]
+        T_ner["Распознать ПДн: ФИО, даты,<br/>адреса, СНИЛС, полис"]
+        T_classify["Классифицировать по ФЗ-152<br/>и HIPAA Safe Harbor"]
+        G_conf{"Уверенность ≥ порога?"}
+        T_mask["Маскировать и псевдонимизировать,<br/>сохранить токен-мапу"]
+        T_recheck["Контрольный прогон:<br/>поиск остаточных ПДн"]
+        G_residual{"Найдены остаточные ПДн?"}
+    end
+    subgraph Lane_dpo["Оператор ПДн"]
+        direction LR
+        T_manual["Верифицировать разметку<br/>вручную"]
+        T_quarantine["Отправить в карантин<br/>на ручную обработку"]
+        End_quarantine(("Документ в карантине"))
+    end
+    subgraph Lane_store["Хранилище и аудит"]
+        direction LR
+        T_store["Сохранить документ и токен-мапу<br/>в раздельных контурах"]
+        T_audit["Записать событие<br/>в неизменяемый аудит-лог"]
+    end
+    Start_doc --> T_auth
+    T_auth --> G_auth
+    G_auth -- "да" --> T_extract
+    G_auth -- "нет" --> T_reject
+    T_reject --> End_rejected
+    T_extract --> T_ner
+    T_ner --> T_classify
+    T_classify --> G_conf
+    G_conf -- "да" --> T_mask
+    G_conf -- "нет" --> T_manual
+    T_manual --> T_mask
+    T_mask --> T_recheck
+    T_recheck --> G_residual
+    G_residual -- "нет" --> T_store
+    G_residual -- "да" --> T_quarantine
+    T_quarantine --> End_quarantine
+    T_store --> T_audit
+    T_audit --> T_return
+    T_return --> End_done
+    classDef evStart fill:#1f7a3f,stroke:#0f4523,color:#ffffff
+    classDef evEnd fill:#8a1f1f,stroke:#4a0f0f,color:#ffffff
+    classDef gw fill:#e0a800,stroke:#8a6800,color:#1a1a1a
+    classDef userTask fill:#2b5d8a,stroke:#143349,color:#ffffff
+    classDef svcTask fill:#3a3f4b,stroke:#1b1e24,color:#ffffff
+    classDef msgTask fill:#5a3a7a,stroke:#2e1c40,color:#ffffff
+    class Start_doc evStart
+    class T_auth,T_reject,T_extract,T_ner,T_classify,T_mask,T_recheck,T_store,T_audit svcTask
+    class G_auth,G_conf,G_residual gw
+    class End_rejected,End_quarantine,End_done evEnd
+    class T_manual,T_quarantine userTask
+    class T_return msgTask

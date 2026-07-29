@@ -1,0 +1,335 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="Definitions_event_registration"
+                  targetNamespace="http://bpmn.io/schema/bpmn"
+                  exporter="sa-portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
+  <bpmn:collaboration id="Collaboration_event_registration">
+    <bpmn:participant id="Participant_event_registration" name="Регистрация на мероприятие через Telegram" processRef="Process_event_registration" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_event_registration" name="Регистрация участника на мероприятие" isExecutable="false">
+    <bpmn:documentation>Основной сквозной процесс: от перехода по deep link до выдачи электронного билета. Целевая конверсия из открытия карточки в завершённую регистрацию — 85%.</bpmn:documentation>
+    <bpmn:laneSet id="LaneSet_event_registration">
+      <bpmn:lane id="Lane_participant" name="Участник">
+        <bpmn:flowNodeRef>Start_deeplink</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_tap</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_form</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_done</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_bot" name="Telegram-бот (FSM)">
+        <bpmn:flowNodeRef>T_resolve</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_card</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_waitlist</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_waitlist</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_profile</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_ticket</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_core" name="Сервис регистрации">
+        <bpmn:flowNodeRef>T_capacity</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_capacity</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_validate</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_valid</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_create</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_ext" name="Внешние системы">
+        <bpmn:flowNodeRef>T_crm</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+      <bpmn:startEvent id="Start_deeplink" name="Переход по deep link
+/start event_id">
+        <bpmn:outgoing>Flow_01</bpmn:outgoing>
+        <bpmn:messageEventDefinition />
+      </bpmn:startEvent>
+      <bpmn:serviceTask id="T_resolve" name="Определить мероприятие
+по deep link">
+        <bpmn:incoming>Flow_01</bpmn:incoming>
+        <bpmn:outgoing>Flow_02</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_capacity" name="Проверить свободные места
+и дедлайн регистрации">
+        <bpmn:incoming>Flow_02</bpmn:incoming>
+        <bpmn:outgoing>Flow_03</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:exclusiveGateway id="G_capacity" name="Есть свободные места?">
+        <bpmn:incoming>Flow_03</bpmn:incoming>
+        <bpmn:outgoing>Flow_04</bpmn:outgoing>
+        <bpmn:outgoing>Flow_05</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:sendTask id="T_card" name="Показать карточку события
+и кнопку «Зарегистрироваться»">
+        <bpmn:incoming>Flow_04</bpmn:incoming>
+        <bpmn:outgoing>Flow_07</bpmn:outgoing>
+      </bpmn:sendTask>
+      <bpmn:sendTask id="T_waitlist" name="Предложить
+лист ожидания">
+        <bpmn:incoming>Flow_05</bpmn:incoming>
+        <bpmn:outgoing>Flow_06</bpmn:outgoing>
+      </bpmn:sendTask>
+      <bpmn:endEvent id="End_waitlist" name="Заявка в листе ожидания">
+        <bpmn:incoming>Flow_06</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:userTask id="T_tap" name="Нажать
+«Зарегистрироваться»">
+        <bpmn:incoming>Flow_07</bpmn:incoming>
+        <bpmn:outgoing>Flow_08</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:exclusiveGateway id="G_profile" name="Профиль заполнен?">
+        <bpmn:incoming>Flow_08</bpmn:incoming>
+        <bpmn:outgoing>Flow_09</bpmn:outgoing>
+        <bpmn:outgoing>Flow_10</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:userTask id="T_form" name="Заполнить анкету:
+ФИО, e-mail, телефон">
+        <bpmn:incoming>Flow_09</bpmn:incoming>
+        <bpmn:incoming>Flow_13</bpmn:incoming>
+        <bpmn:outgoing>Flow_11</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:serviceTask id="T_validate" name="Валидировать поля
+и проверить дубли">
+        <bpmn:incoming>Flow_11</bpmn:incoming>
+        <bpmn:outgoing>Flow_12</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:exclusiveGateway id="G_valid" name="Данные корректны?">
+        <bpmn:incoming>Flow_12</bpmn:incoming>
+        <bpmn:outgoing>Flow_13</bpmn:outgoing>
+        <bpmn:outgoing>Flow_14</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:serviceTask id="T_create" name="Создать заявку
+и забронировать место">
+        <bpmn:incoming>Flow_10</bpmn:incoming>
+        <bpmn:incoming>Flow_14</bpmn:incoming>
+        <bpmn:outgoing>Flow_15</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_crm" name="Записать участника
+в Google Sheets / Airtable">
+        <bpmn:incoming>Flow_15</bpmn:incoming>
+        <bpmn:outgoing>Flow_16</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:sendTask id="T_ticket" name="Отправить билет с QR-кодом
+и файл календаря">
+        <bpmn:incoming>Flow_16</bpmn:incoming>
+        <bpmn:outgoing>Flow_17</bpmn:outgoing>
+      </bpmn:sendTask>
+      <bpmn:endEvent id="End_done" name="Регистрация завершена">
+        <bpmn:incoming>Flow_17</bpmn:incoming>
+        <bpmn:messageEventDefinition />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_01" sourceRef="Start_deeplink" targetRef="T_resolve" />
+      <bpmn:sequenceFlow id="Flow_02" sourceRef="T_resolve" targetRef="T_capacity" />
+      <bpmn:sequenceFlow id="Flow_03" sourceRef="T_capacity" targetRef="G_capacity" />
+      <bpmn:sequenceFlow id="Flow_04" name="да" sourceRef="G_capacity" targetRef="T_card" />
+      <bpmn:sequenceFlow id="Flow_05" name="нет" sourceRef="G_capacity" targetRef="T_waitlist" />
+      <bpmn:sequenceFlow id="Flow_06" sourceRef="T_waitlist" targetRef="End_waitlist" />
+      <bpmn:sequenceFlow id="Flow_07" sourceRef="T_card" targetRef="T_tap" />
+      <bpmn:sequenceFlow id="Flow_08" sourceRef="T_tap" targetRef="G_profile" />
+      <bpmn:sequenceFlow id="Flow_09" name="нет" sourceRef="G_profile" targetRef="T_form" />
+      <bpmn:sequenceFlow id="Flow_10" name="да" sourceRef="G_profile" targetRef="T_create" />
+      <bpmn:sequenceFlow id="Flow_11" sourceRef="T_form" targetRef="T_validate" />
+      <bpmn:sequenceFlow id="Flow_12" sourceRef="T_validate" targetRef="G_valid" />
+      <bpmn:sequenceFlow id="Flow_13" name="нет, вернуть на правку" sourceRef="G_valid" targetRef="T_form" />
+      <bpmn:sequenceFlow id="Flow_14" name="да" sourceRef="G_valid" targetRef="T_create" />
+      <bpmn:sequenceFlow id="Flow_15" sourceRef="T_create" targetRef="T_crm" />
+      <bpmn:sequenceFlow id="Flow_16" sourceRef="T_crm" targetRef="T_ticket" />
+      <bpmn:sequenceFlow id="Flow_17" sourceRef="T_ticket" targetRef="End_done" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_event_registration">
+    <bpmndi:BPMNPlane id="Plane_event_registration" bpmnElement="Collaboration_event_registration">
+      <bpmndi:BPMNShape id="Shape_Participant_event_registration" bpmnElement="Participant_event_registration" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="2730" height="850" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_participant" bpmnElement="Lane_participant" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="2700" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_bot" bpmnElement="Lane_bot" isHorizontal="true">
+        <dc:Bounds x="190" y="260" width="2700" height="310" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_core" bpmnElement="Lane_core" isHorizontal="true">
+        <dc:Bounds x="190" y="570" width="2700" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_ext" bpmnElement="Lane_ext" isHorizontal="true">
+        <dc:Bounds x="190" y="750" width="2700" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Start_deeplink" bpmnElement="Start_deeplink">
+        <dc:Bounds x="267" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="232" y="194" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_resolve" bpmnElement="T_resolve">
+        <dc:Bounds x="415" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_capacity" bpmnElement="T_capacity">
+        <dc:Bounds x="605" y="620" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_G_capacity" bpmnElement="G_capacity">
+        <dc:Bounds x="830" y="635" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="795" y="691" width="120" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_card" bpmnElement="T_card">
+        <dc:Bounds x="985" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_waitlist" bpmnElement="T_waitlist">
+        <dc:Bounds x="985" y="440" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_waitlist" bpmnElement="End_waitlist">
+        <dc:Bounds x="1217" y="462" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1182" y="504" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_tap" bpmnElement="T_tap">
+        <dc:Bounds x="1175" y="130" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_G_profile" bpmnElement="G_profile">
+        <dc:Bounds x="1400" y="325" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1365" y="381" width="120" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_form" bpmnElement="T_form">
+        <dc:Bounds x="1555" y="130" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_validate" bpmnElement="T_validate">
+        <dc:Bounds x="1745" y="620" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_G_valid" bpmnElement="G_valid">
+        <dc:Bounds x="1970" y="635" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1935" y="691" width="120" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_create" bpmnElement="T_create">
+        <dc:Bounds x="2125" y="620" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_crm" bpmnElement="T_crm">
+        <dc:Bounds x="2315" y="800" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_ticket" bpmnElement="T_ticket">
+        <dc:Bounds x="2505" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_done" bpmnElement="End_done">
+        <dc:Bounds x="2737" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2702" y="194" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_Flow_01" bpmnElement="Flow_01">
+        <di:waypoint x="303" y="170" />
+        <di:waypoint x="359" y="170" />
+        <di:waypoint x="359" y="350" />
+        <di:waypoint x="415" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_02" bpmnElement="Flow_02">
+        <di:waypoint x="535" y="350" />
+        <di:waypoint x="570" y="350" />
+        <di:waypoint x="570" y="660" />
+        <di:waypoint x="605" y="660" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_03" bpmnElement="Flow_03">
+        <di:waypoint x="725" y="660" />
+        <di:waypoint x="830" y="660" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_04" bpmnElement="Flow_04">
+        <di:waypoint x="880" y="660" />
+        <di:waypoint x="932" y="660" />
+        <di:waypoint x="932" y="350" />
+        <di:waypoint x="985" y="350" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="912" y="326" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_05" bpmnElement="Flow_05">
+        <di:waypoint x="880" y="660" />
+        <di:waypoint x="932" y="660" />
+        <di:waypoint x="932" y="480" />
+        <di:waypoint x="985" y="480" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="912" y="456" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_06" bpmnElement="Flow_06">
+        <di:waypoint x="1105" y="480" />
+        <di:waypoint x="1217" y="480" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_07" bpmnElement="Flow_07">
+        <di:waypoint x="1105" y="350" />
+        <di:waypoint x="1140" y="350" />
+        <di:waypoint x="1140" y="170" />
+        <di:waypoint x="1175" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_08" bpmnElement="Flow_08">
+        <di:waypoint x="1295" y="170" />
+        <di:waypoint x="1347" y="170" />
+        <di:waypoint x="1347" y="350" />
+        <di:waypoint x="1400" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_09" bpmnElement="Flow_09">
+        <di:waypoint x="1450" y="350" />
+        <di:waypoint x="1502" y="350" />
+        <di:waypoint x="1502" y="170" />
+        <di:waypoint x="1555" y="170" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1482" y="146" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_10" bpmnElement="Flow_10">
+        <di:waypoint x="1450" y="350" />
+        <di:waypoint x="1787" y="350" />
+        <di:waypoint x="1787" y="660" />
+        <di:waypoint x="2125" y="660" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1767" y="636" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_11" bpmnElement="Flow_11">
+        <di:waypoint x="1675" y="170" />
+        <di:waypoint x="1710" y="170" />
+        <di:waypoint x="1710" y="660" />
+        <di:waypoint x="1745" y="660" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_12" bpmnElement="Flow_12">
+        <di:waypoint x="1865" y="660" />
+        <di:waypoint x="1970" y="660" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_13" bpmnElement="Flow_13">
+        <di:waypoint x="1995" y="685" />
+        <di:waypoint x="1995" y="730" />
+        <di:waypoint x="1615" y="730" />
+        <di:waypoint x="1615" y="210" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1595" y="706" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_14" bpmnElement="Flow_14">
+        <di:waypoint x="2020" y="660" />
+        <di:waypoint x="2125" y="660" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2105" y="636" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_15" bpmnElement="Flow_15">
+        <di:waypoint x="2245" y="660" />
+        <di:waypoint x="2280" y="660" />
+        <di:waypoint x="2280" y="840" />
+        <di:waypoint x="2315" y="840" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_16" bpmnElement="Flow_16">
+        <di:waypoint x="2435" y="840" />
+        <di:waypoint x="2470" y="840" />
+        <di:waypoint x="2470" y="350" />
+        <di:waypoint x="2505" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_17" bpmnElement="Flow_17">
+        <di:waypoint x="2625" y="350" />
+        <di:waypoint x="2681" y="350" />
+        <di:waypoint x="2681" y="170" />
+        <di:waypoint x="2737" y="170" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

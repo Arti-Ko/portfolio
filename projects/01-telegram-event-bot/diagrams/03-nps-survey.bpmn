@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="Definitions_event_nps"
+                  targetNamespace="http://bpmn.io/schema/bpmn"
+                  exporter="sa-portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
+  <bpmn:collaboration id="Collaboration_event_nps">
+    <bpmn:participant id="Participant_event_nps" name="Сбор обратной связи после мероприятия" processRef="Process_event_nps" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_event_nps" name="Пост-ивентный NPS-опрос" isExecutable="false">
+    <bpmn:documentation>Через 2 часа после окончания события бот запрашивает оценку по шкале 0–10. Детракторы (0–6) получают уточняющий вопрос, ответы попадают в сводный отчёт по мероприятиям.</bpmn:documentation>
+    <bpmn:laneSet id="LaneSet_event_nps">
+      <bpmn:lane id="Lane_sched" name="Планировщик">
+        <bpmn:flowNodeRef>Start_after</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_audience</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_bot" name="Telegram-бот">
+        <bpmn:flowNodeRef>T_ask</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_detractor</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_thanks</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_probe</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_participant" name="Участник">
+        <bpmn:flowNodeRef>T_rate</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_comment</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_analytics" name="Аналитический модуль">
+        <bpmn:flowNodeRef>T_store</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_recalc</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_report</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+      <bpmn:startEvent id="Start_after" name="T+2 ч после
+окончания события">
+        <bpmn:outgoing>Flow_01</bpmn:outgoing>
+        <bpmn:timerEventDefinition />
+      </bpmn:startEvent>
+      <bpmn:serviceTask id="T_audience" name="Отобрать участников
+со статусом «пришёл»">
+        <bpmn:incoming>Flow_01</bpmn:incoming>
+        <bpmn:outgoing>Flow_02</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:sendTask id="T_ask" name="Отправить опрос:
+оценка 0–10">
+        <bpmn:incoming>Flow_02</bpmn:incoming>
+        <bpmn:outgoing>Flow_03</bpmn:outgoing>
+      </bpmn:sendTask>
+      <bpmn:userTask id="T_rate" name="Поставить оценку">
+        <bpmn:incoming>Flow_03</bpmn:incoming>
+        <bpmn:outgoing>Flow_04</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:exclusiveGateway id="G_detractor" name="Оценка ≤ 6?">
+        <bpmn:incoming>Flow_04</bpmn:incoming>
+        <bpmn:outgoing>Flow_05</bpmn:outgoing>
+        <bpmn:outgoing>Flow_06</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:sendTask id="T_thanks" name="Поблагодарить и предложить
+ближайшее событие">
+        <bpmn:incoming>Flow_05</bpmn:incoming>
+        <bpmn:outgoing>Flow_09</bpmn:outgoing>
+      </bpmn:sendTask>
+      <bpmn:sendTask id="T_probe" name="Запросить комментарий:
+что улучшить">
+        <bpmn:incoming>Flow_06</bpmn:incoming>
+        <bpmn:outgoing>Flow_07</bpmn:outgoing>
+      </bpmn:sendTask>
+      <bpmn:userTask id="T_comment" name="Написать комментарий">
+        <bpmn:incoming>Flow_07</bpmn:incoming>
+        <bpmn:outgoing>Flow_08</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:serviceTask id="T_store" name="Сохранить ответ
+и связать с мероприятием">
+        <bpmn:incoming>Flow_08</bpmn:incoming>
+        <bpmn:incoming>Flow_09</bpmn:incoming>
+        <bpmn:outgoing>Flow_10</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_recalc" name="Пересчитать NPS
+и обновить сводный отчёт">
+        <bpmn:incoming>Flow_10</bpmn:incoming>
+        <bpmn:outgoing>Flow_11</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="End_report" name="Отчёт обновлён">
+        <bpmn:incoming>Flow_11</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_01" sourceRef="Start_after" targetRef="T_audience" />
+      <bpmn:sequenceFlow id="Flow_02" sourceRef="T_audience" targetRef="T_ask" />
+      <bpmn:sequenceFlow id="Flow_03" sourceRef="T_ask" targetRef="T_rate" />
+      <bpmn:sequenceFlow id="Flow_04" sourceRef="T_rate" targetRef="G_detractor" />
+      <bpmn:sequenceFlow id="Flow_05" name="нет" sourceRef="G_detractor" targetRef="T_thanks" />
+      <bpmn:sequenceFlow id="Flow_06" name="да" sourceRef="G_detractor" targetRef="T_probe" />
+      <bpmn:sequenceFlow id="Flow_07" sourceRef="T_probe" targetRef="T_comment" />
+      <bpmn:sequenceFlow id="Flow_08" sourceRef="T_comment" targetRef="T_store" />
+      <bpmn:sequenceFlow id="Flow_09" sourceRef="T_thanks" targetRef="T_store" />
+      <bpmn:sequenceFlow id="Flow_10" sourceRef="T_store" targetRef="T_recalc" />
+      <bpmn:sequenceFlow id="Flow_11" sourceRef="T_recalc" targetRef="End_report" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_event_nps">
+    <bpmndi:BPMNPlane id="Plane_event_nps" bpmnElement="Collaboration_event_nps">
+      <bpmndi:BPMNShape id="Shape_Participant_event_nps" bpmnElement="Participant_event_nps" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="1970" height="850" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_sched" bpmnElement="Lane_sched" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="1940" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_bot" bpmnElement="Lane_bot" isHorizontal="true">
+        <dc:Bounds x="190" y="260" width="1940" height="310" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_participant" bpmnElement="Lane_participant" isHorizontal="true">
+        <dc:Bounds x="190" y="570" width="1940" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_analytics" bpmnElement="Lane_analytics" isHorizontal="true">
+        <dc:Bounds x="190" y="750" width="1940" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Start_after" bpmnElement="Start_after">
+        <dc:Bounds x="267" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="232" y="194" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_audience" bpmnElement="T_audience">
+        <dc:Bounds x="415" y="130" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_ask" bpmnElement="T_ask">
+        <dc:Bounds x="605" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_rate" bpmnElement="T_rate">
+        <dc:Bounds x="795" y="620" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_G_detractor" bpmnElement="G_detractor">
+        <dc:Bounds x="1020" y="325" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="985" y="381" width="120" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_thanks" bpmnElement="T_thanks">
+        <dc:Bounds x="1175" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_probe" bpmnElement="T_probe">
+        <dc:Bounds x="1175" y="440" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_comment" bpmnElement="T_comment">
+        <dc:Bounds x="1365" y="620" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_store" bpmnElement="T_store">
+        <dc:Bounds x="1555" y="800" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_recalc" bpmnElement="T_recalc">
+        <dc:Bounds x="1745" y="800" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_report" bpmnElement="End_report">
+        <dc:Bounds x="1977" y="822" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1942" y="864" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_Flow_01" bpmnElement="Flow_01">
+        <di:waypoint x="303" y="170" />
+        <di:waypoint x="415" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_02" bpmnElement="Flow_02">
+        <di:waypoint x="535" y="170" />
+        <di:waypoint x="570" y="170" />
+        <di:waypoint x="570" y="350" />
+        <di:waypoint x="605" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_03" bpmnElement="Flow_03">
+        <di:waypoint x="725" y="350" />
+        <di:waypoint x="760" y="350" />
+        <di:waypoint x="760" y="660" />
+        <di:waypoint x="795" y="660" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_04" bpmnElement="Flow_04">
+        <di:waypoint x="915" y="660" />
+        <di:waypoint x="967" y="660" />
+        <di:waypoint x="967" y="350" />
+        <di:waypoint x="1020" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_05" bpmnElement="Flow_05">
+        <di:waypoint x="1070" y="350" />
+        <di:waypoint x="1175" y="350" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1155" y="326" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_06" bpmnElement="Flow_06">
+        <di:waypoint x="1070" y="350" />
+        <di:waypoint x="1122" y="350" />
+        <di:waypoint x="1122" y="480" />
+        <di:waypoint x="1175" y="480" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1102" y="456" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_07" bpmnElement="Flow_07">
+        <di:waypoint x="1295" y="480" />
+        <di:waypoint x="1330" y="480" />
+        <di:waypoint x="1330" y="660" />
+        <di:waypoint x="1365" y="660" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_08" bpmnElement="Flow_08">
+        <di:waypoint x="1485" y="660" />
+        <di:waypoint x="1520" y="660" />
+        <di:waypoint x="1520" y="840" />
+        <di:waypoint x="1555" y="840" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_09" bpmnElement="Flow_09">
+        <di:waypoint x="1295" y="350" />
+        <di:waypoint x="1425" y="350" />
+        <di:waypoint x="1425" y="840" />
+        <di:waypoint x="1555" y="840" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_10" bpmnElement="Flow_10">
+        <di:waypoint x="1675" y="840" />
+        <di:waypoint x="1745" y="840" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_11" bpmnElement="Flow_11">
+        <di:waypoint x="1865" y="840" />
+        <di:waypoint x="1977" y="840" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

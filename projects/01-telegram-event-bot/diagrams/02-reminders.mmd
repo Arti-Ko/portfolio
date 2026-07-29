@@ -1,0 +1,45 @@
+flowchart LR
+    subgraph Lane_sched["Планировщик"]
+        direction LR
+        Start_tick(("Ежечасный запуск<br/>по расписанию"))
+        T_select["Отобрать заявки в окне<br/>T-24 ч и T-1 ч"]
+        G_any{"Есть адресаты?"}
+        T_queue["Сформировать очередь<br/>с учётом лимитов Telegram"]
+        End_empty(("Рассылка не требуется"))
+        T_release["Освободить место и пригласить<br/>первого из листа ожидания"]
+        T_confirm["Проставить статус<br/>«подтвердил» в CRM"]
+        End_released(("Место переиспользовано"))
+        End_confirmed(("Участие подтверждено"))
+    end
+    subgraph Lane_bot["Telegram-бот"]
+        direction LR
+        T_send["Отправить напоминание<br/>с кнопками «Буду» / «Не приду»"]
+        G_decline{"Участник отказался?"}
+    end
+    subgraph Lane_participant["Участник"]
+        direction LR
+        T_answer["Ответить на напоминание"]
+    end
+    Start_tick --> T_select
+    T_select --> G_any
+    G_any -- "да" --> T_queue
+    G_any -- "нет" --> End_empty
+    T_queue --> T_send
+    T_send --> T_answer
+    T_answer --> G_decline
+    G_decline -- "да" --> T_release
+    G_decline -- "нет" --> T_confirm
+    T_release --> End_released
+    T_confirm --> End_confirmed
+    classDef evStart fill:#1f7a3f,stroke:#0f4523,color:#ffffff
+    classDef evEnd fill:#8a1f1f,stroke:#4a0f0f,color:#ffffff
+    classDef gw fill:#e0a800,stroke:#8a6800,color:#1a1a1a
+    classDef userTask fill:#2b5d8a,stroke:#143349,color:#ffffff
+    classDef svcTask fill:#3a3f4b,stroke:#1b1e24,color:#ffffff
+    classDef msgTask fill:#5a3a7a,stroke:#2e1c40,color:#ffffff
+    class Start_tick evStart
+    class T_select,T_queue,T_release,T_confirm svcTask
+    class G_any,G_decline gw
+    class End_empty,End_released,End_confirmed evEnd
+    class T_send msgTask
+    class T_answer userTask
