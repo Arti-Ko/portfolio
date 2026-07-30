@@ -732,6 +732,321 @@ driver_clearance = Model(
 )
 
 
+# --------------------------------------------------------------------------
+# Проект 8 — Трекер симптомов для онкопациентов
+# --------------------------------------------------------------------------
+
+symptom_tracking = Model(
+    id="symptom_tracking",
+    name="Ежедневный учёт симптомов и эскалация",
+    pool_name="Трекер симптомов онкопациента",
+    documentation=(
+        "Пациент отмечает симптомы по шкале, система оценивает тяжесть и "
+        "решает, достаточно ли рекомендации по самопомощи или нужно "
+        "поднять флаг лечащему врачу."
+    ),
+    lanes=[
+        Lane("Lane_pat", "Пациент", rows=1),
+        Lane("Lane_app", "Приложение", rows=1),
+        Lane("Lane_rules", "Модуль оценки", rows=1),
+        Lane("Lane_doc", "Лечащий врач", rows=2),
+    ],
+    nodes=[
+        Start("Start_open", "Пациент открыл\nдневник", "Lane_pat", 0, kind="message"),
+        Task("T_log", "Отметить симптомы\nпо шкале", "Lane_pat", 1, kind="user"),
+        Task("T_template", "Подставить шаблон\nпо нозологии", "Lane_app", 2, kind="service"),
+        Task("T_grade", "Оценить степень тяжести\nпо клинической шкале", "Lane_rules", 3, kind="service"),
+        Gateway("G_severity", "Тяжесть\nвыше порога?", "Lane_rules", 4),
+        Task("T_advice", "Показать рекомендацию\nпо самопомощи", "Lane_app", 5, kind="send"),
+        Task("T_notify_doc", "Поднять флаг\nлечащему врачу", "Lane_doc", 5, kind="send"),
+        Task("T_review", "Посмотреть динамику\nсимптомов", "Lane_doc", 6, kind="user"),
+        Gateway("G_action", "Требуется\nвмешательство?", "Lane_doc", 7),
+        Task("T_contact", "Связаться с пациентом\nи скорректировать терапию", "Lane_doc", 8, kind="user"),
+        Task("T_mark", "Отметить\nкак наблюдение", "Lane_doc", 8, row=1, kind="user"),
+        Task("T_store", "Сохранить запись\nв дневнике", "Lane_app", 9, kind="service"),
+        End("End_done", "Запись сохранена", "Lane_pat", 10),
+    ],
+    flows=[
+        Flow("Start_open", "T_log"),
+        Flow("T_log", "T_template"),
+        Flow("T_template", "T_grade"),
+        Flow("T_grade", "G_severity"),
+        Flow("G_severity", "T_advice", "нет"),
+        Flow("G_severity", "T_notify_doc", "да"),
+        Flow("T_notify_doc", "T_review"),
+        Flow("T_review", "G_action"),
+        Flow("G_action", "T_contact", "да"),
+        Flow("G_action", "T_mark", "нет"),
+        Flow("T_advice", "T_store"),
+        Flow("T_contact", "T_store"),
+        Flow("T_mark", "T_store"),
+        Flow("T_store", "End_done"),
+    ],
+)
+
+medication_schedule = Model(
+    id="medication_schedule",
+    name="Календарь приёма препаратов",
+    pool_name="Напоминания и учёт приверженности терапии",
+    documentation=(
+        "Схема приёма превращается в календарь с напоминаниями. Пропуски "
+        "фиксируются и при накоплении становятся сигналом врачу: "
+        "низкая приверженность терапии — клинически значимый факт."
+    ),
+    lanes=[
+        Lane("Lane_doc", "Лечащий врач", rows=1),
+        Lane("Lane_app", "Приложение", rows=2),
+        Lane("Lane_sched", "Планировщик", rows=2),
+        Lane("Lane_pat", "Пациент", rows=1),
+    ],
+    nodes=[
+        Start("Start_plan", "Врач назначил\nсхему приёма", "Lane_doc", 0, kind="message"),
+        Task("T_schedule", "Построить календарь\nприёмов", "Lane_app", 1, kind="service"),
+        Task("T_tick", "Отследить наступление\nвремени приёма", "Lane_sched", 2, kind="service"),
+        Task("T_remind", "Отправить\nнапоминание", "Lane_sched", 3, kind="send"),
+        Task("T_confirm", "Отметить приём\nпрепарата", "Lane_pat", 4, kind="user"),
+        Gateway("G_taken", "Приём\nподтверждён?", "Lane_app", 5),
+        Task("T_mark_ok", "Зафиксировать приём", "Lane_app", 6, kind="service"),
+        Task("T_repeat", "Повторить напоминание\nв пределах окна", "Lane_sched", 6, row=1, kind="send"),
+        Task("T_wait", "Дождаться конца\nокна приёма", "Lane_sched", 7, row=1, kind="service"),
+        Task("T_miss", "Зафиксировать пропуск\nи показать инструкцию", "Lane_app", 8, row=1, kind="service"),
+        Task("T_stats", "Обновить статистику\nприверженности", "Lane_app", 9, kind="service"),
+        Gateway("G_adherence", "Приверженность\nниже порога?", "Lane_app", 10),
+        Task("T_flag", "Показать врачу сигнал\nо систематических пропусках", "Lane_doc", 11, kind="send"),
+        End("End_flagged", "Врач уведомлён", "Lane_doc", 12),
+        End("End_ok", "Календарь актуален", "Lane_pat", 11),
+    ],
+    flows=[
+        Flow("Start_plan", "T_schedule"),
+        Flow("T_schedule", "T_tick"),
+        Flow("T_tick", "T_remind"),
+        Flow("T_remind", "T_confirm"),
+        Flow("T_confirm", "G_taken"),
+        Flow("G_taken", "T_mark_ok", "да"),
+        Flow("G_taken", "T_repeat", "нет"),
+        Flow("T_repeat", "T_wait"),
+        Flow("T_wait", "T_miss"),
+        Flow("T_mark_ok", "T_stats"),
+        Flow("T_miss", "T_stats"),
+        Flow("T_stats", "G_adherence"),
+        Flow("G_adherence", "T_flag", "да"),
+        Flow("G_adherence", "End_ok", "нет"),
+        Flow("T_flag", "End_flagged"),
+    ],
+)
+
+
+# --------------------------------------------------------------------------
+# Проект 9 — B2B веб-мессенджер клиентских задач
+# --------------------------------------------------------------------------
+
+task_lifecycle = Model(
+    id="task_lifecycle",
+    name="Жизненный цикл клиентской задачи",
+    pool_name="Постановка, выполнение и оценка задачи",
+    documentation=(
+        "Клиент ставит задачу привычным способом — в мессенджере, "
+        "сотрудник работает в веб-интерфейсе, а состояние задачи "
+        "синхронизируется с CRM."
+    ),
+    lanes=[
+        Lane("Lane_cli", "Клиент", rows=1),
+        Lane("Lane_bot", "Telegram-бот", rows=1),
+        Lane("Lane_msg", "Веб-мессенджер", rows=2),
+        Lane("Lane_emp", "Сотрудник", rows=2),
+        Lane("Lane_crm", "CRM", rows=1),
+    ],
+    nodes=[
+        Start("Start_task", "Клиент ставит задачу\nв мессенджере", "Lane_cli", 0, kind="message"),
+        Task("T_parse", "Разобрать заявку\nи определить тип", "Lane_bot", 1, kind="service"),
+        Task("T_chat", "Создать чат задачи\nи подключить участников", "Lane_msg", 2, kind="service"),
+        Task("T_deal", "Создать сделку", "Lane_crm", 3, kind="service"),
+        Task("T_assign", "Назначить\nответственного", "Lane_msg", 4, kind="service"),
+        Task("T_take", "Принять задачу\nв работу", "Lane_emp", 5, kind="user"),
+        Task("T_timer", "Запустить таймер\nпо нормативу", "Lane_msg", 6, kind="service"),
+        Task("T_work", "Выполнить задачу\nи приложить результат", "Lane_emp", 7, kind="user"),
+        Gateway("G_sla", "Уложились\nв норматив?", "Lane_msg", 8),
+        Task("T_escalate", "Эскалировать\nруководителю", "Lane_msg", 9, row=1, kind="send"),
+        Task("T_review", "Проверить результат", "Lane_cli", 10, kind="user"),
+        Gateway("G_accept", "Результат принят?", "Lane_cli", 11),
+        Task("T_rework", "Вернуть задачу\nв работу", "Lane_emp", 12, row=1, kind="send"),
+        End("End_rework", "Задача\nна доработке", "Lane_emp", 13, row=1),
+        Task("T_rate", "Оценить работу\nсотрудника", "Lane_cli", 12, kind="user"),
+        Task("T_close", "Закрыть сделку\nи записать оценку", "Lane_crm", 13, kind="service"),
+        End("End_done", "Задача закрыта", "Lane_cli", 14),
+    ],
+    flows=[
+        Flow("Start_task", "T_parse"),
+        Flow("T_parse", "T_chat"),
+        Flow("T_chat", "T_deal"),
+        Flow("T_deal", "T_assign"),
+        Flow("T_assign", "T_take"),
+        Flow("T_take", "T_timer"),
+        Flow("T_timer", "T_work"),
+        Flow("T_work", "G_sla"),
+        Flow("G_sla", "T_review", "да"),
+        Flow("G_sla", "T_escalate", "нет"),
+        Flow("T_escalate", "T_review"),
+        Flow("T_review", "G_accept"),
+        Flow("G_accept", "T_rate", "да"),
+        Flow("G_accept", "T_rework", "нет"),
+        Flow("T_rework", "End_rework"),
+        Flow("T_rate", "T_close"),
+        Flow("T_close", "End_done"),
+    ],
+)
+
+crm_sync = Model(
+    id="crm_sync",
+    name="Двусторонняя синхронизация с CRM",
+    pool_name="Обмен состоянием задачи между мессенджером и CRM",
+    documentation=(
+        "Исходящий журнал гарантирует, что изменение задачи и событие для "
+        "CRM записываются вместе. Встречные изменения из CRM разрешаются "
+        "по явному правилу приоритета."
+    ),
+    lanes=[
+        Lane("Lane_msg", "Веб-мессенджер", rows=2),
+        Lane("Lane_out", "Исходящий журнал", rows=1),
+        Lane("Lane_adp", "Адаптер CRM", rows=2),
+        Lane("Lane_crm", "CRM", rows=1),
+    ],
+    nodes=[
+        Start("Start_change", "Изменилось состояние\nзадачи", "Lane_msg", 0, kind="message"),
+        Task("T_write", "Записать изменение и событие\nв одной транзакции", "Lane_msg", 1, kind="service"),
+        Task("T_store", "Сохранить событие\nдо подтверждения", "Lane_out", 2, kind="service"),
+        Task("T_read", "Прочитать\nнеотправленные события", "Lane_adp", 3, kind="service"),
+        Task("T_map", "Сопоставить поля\nс моделью CRM", "Lane_adp", 4, kind="service"),
+        Task("T_push", "Обновить сделку", "Lane_crm", 5, kind="service"),
+        Gateway("G_ok", "Обновление\nпринято?", "Lane_adp", 6),
+        Task("T_ack", "Пометить событие\nдоставленным", "Lane_adp", 7, kind="service"),
+        Task("T_retry", "Вернуть в очередь\nс нарастающей задержкой", "Lane_adp", 7, row=1, kind="service"),
+        End("End_retry", "Повтор\nзапланирован", "Lane_adp", 8, row=1),
+        Gateway("G_inbound", "Есть встречное\nизменение из CRM?", "Lane_adp", 8),
+        Task("T_conflict", "Сравнить версии\nи применить приоритет", "Lane_adp", 9, kind="service"),
+        Task("T_apply", "Применить изменение\nв мессенджере", "Lane_msg", 10, kind="service"),
+        End("End_applied", "Состояния\nсогласованы", "Lane_msg", 11),
+        End("End_synced", "Изменение\nдоставлено", "Lane_msg", 11, row=1),
+    ],
+    flows=[
+        Flow("Start_change", "T_write"),
+        Flow("T_write", "T_store"),
+        Flow("T_store", "T_read"),
+        Flow("T_read", "T_map"),
+        Flow("T_map", "T_push"),
+        Flow("T_push", "G_ok"),
+        Flow("G_ok", "T_ack", "да"),
+        Flow("G_ok", "T_retry", "нет"),
+        Flow("T_retry", "End_retry"),
+        Flow("T_ack", "G_inbound"),
+        Flow("G_inbound", "T_conflict", "да"),
+        Flow("G_inbound", "End_synced", "нет"),
+        Flow("T_conflict", "T_apply"),
+        Flow("T_apply", "End_applied"),
+    ],
+)
+
+
+# --------------------------------------------------------------------------
+# Проект 10 — B2B-платформа управления строительными проектами
+# --------------------------------------------------------------------------
+
+project_lifecycle = Model(
+    id="construction_project",
+    name="От технического задания до старта работ",
+    pool_name="Закрытый тендер и выбор подрядчика",
+    documentation=(
+        "Платформа выступает управляемым посредником: подрядчиков "
+        "приглашает менеджер вручную из аккредитованного пула, публичного "
+        "доступа к тендеру нет."
+    ),
+    lanes=[
+        Lane("Lane_cli", "Клиент", rows=1),
+        Lane("Lane_mgr", "Менеджер платформы", rows=2),
+        Lane("Lane_con", "Подрядчик", rows=1),
+    ],
+    nodes=[
+        Start("Start_need", "У клиента появилась\nзадача", "Lane_cli", 0),
+        Task("T_brief", "Создать ТЗ: описание,\nбюджет, сроки, файлы", "Lane_cli", 1, kind="user"),
+        Task("T_validate", "Проверить\nи уточнить ТЗ", "Lane_mgr", 2, kind="user"),
+        Gateway("G_ready", "ТЗ готово\nк тендеру?", "Lane_mgr", 3),
+        Task("T_open", "Открыть\nзакрытый тендер", "Lane_mgr", 4, kind="service"),
+        Task("T_clarify", "Вернуть клиенту\nна уточнение", "Lane_mgr", 4, row=1, kind="send"),
+        End("End_draft", "ТЗ в черновике", "Lane_mgr", 5, row=1),
+        Task("T_invite", "Пригласить аккредитованных\nподрядчиков", "Lane_mgr", 5, kind="send"),
+        Task("T_bid", "Подать КП\nс разбивкой по этапам", "Lane_con", 6, kind="user"),
+        Task("T_check", "Проверить полноту КП\nи адекватность смет", "Lane_mgr", 7, kind="user"),
+        Task("T_compare", "Сравнить\nпредложения", "Lane_cli", 8, kind="user"),
+        Task("T_choose", "Выбрать подрядчика", "Lane_cli", 9, kind="user"),
+        Task("T_stages", "Сформировать таблицу этапов\nиз выбранного КП", "Lane_mgr", 10, kind="service"),
+        End("End_started", "Проект переведён\nв работу", "Lane_cli", 11, kind="message"),
+    ],
+    flows=[
+        Flow("Start_need", "T_brief"),
+        Flow("T_brief", "T_validate"),
+        Flow("T_validate", "G_ready"),
+        Flow("G_ready", "T_open", "да"),
+        Flow("G_ready", "T_clarify", "нет"),
+        Flow("T_clarify", "End_draft"),
+        Flow("T_open", "T_invite"),
+        Flow("T_invite", "T_bid"),
+        Flow("T_bid", "T_check"),
+        Flow("T_check", "T_compare"),
+        Flow("T_compare", "T_choose"),
+        Flow("T_choose", "T_stages"),
+        Flow("T_stages", "End_started"),
+    ],
+)
+
+stage_acceptance = Model(
+    id="stage_acceptance",
+    name="Приёмка и оплата этапа",
+    pool_name="Эскроу-цикл одного этапа работ",
+    documentation=(
+        "Деньги блокируются до начала работ и уходят подрядчику только "
+        "после подтверждения приёмки клиентом. Выплату инициирует "
+        "менеджер, а не автоматика."
+    ),
+    lanes=[
+        Lane("Lane_cli", "Клиент", rows=1),
+        Lane("Lane_esc", "Эскроу", rows=1),
+        Lane("Lane_con", "Подрядчик", rows=1),
+        Lane("Lane_mgr", "Менеджер платформы", rows=2),
+    ],
+    nodes=[
+        Start("Start_stage", "Этап требует\nоплаты", "Lane_cli", 0, kind="message"),
+        Task("T_pay", "Оплатить этап", "Lane_cli", 1, kind="user"),
+        Task("T_hold", "Заблокировать средства\nна эскроу-счёте", "Lane_esc", 2, kind="service"),
+        Task("T_start", "Начать работу\nпо этапу", "Lane_con", 3, kind="user"),
+        Task("T_report", "Запросить приёмку\nс фото- и видеоотчётом", "Lane_con", 4, kind="user"),
+        Task("T_check", "Проверить отчёт\nи соответствие объёму", "Lane_mgr", 5, kind="user"),
+        Gateway("G_ok", "Отчёт принят\nменеджером?", "Lane_mgr", 6),
+        Task("T_return", "Вернуть этап\nна доработку", "Lane_mgr", 7, row=1, kind="send"),
+        End("End_rework", "Этап на доработке", "Lane_mgr", 8, row=1),
+        Task("T_accept", "Подтвердить приёмку", "Lane_cli", 7, kind="user"),
+        Task("T_release", "Инициировать выплату\nподрядчику", "Lane_mgr", 8, kind="user"),
+        Task("T_payout", "Перевести средства\nиз эскроу", "Lane_esc", 9, kind="service"),
+        Task("T_next", "Перевести проект\nк следующему этапу", "Lane_mgr", 10, kind="service"),
+        End("End_stage", "Этап принят\nи оплачен", "Lane_cli", 11),
+    ],
+    flows=[
+        Flow("Start_stage", "T_pay"),
+        Flow("T_pay", "T_hold"),
+        Flow("T_hold", "T_start"),
+        Flow("T_start", "T_report"),
+        Flow("T_report", "T_check"),
+        Flow("T_check", "G_ok"),
+        Flow("G_ok", "T_accept", "да"),
+        Flow("G_ok", "T_return", "нет"),
+        Flow("T_return", "End_rework"),
+        Flow("T_accept", "T_release"),
+        Flow("T_release", "T_payout"),
+        Flow("T_payout", "T_next"),
+        Flow("T_next", "End_stage"),
+    ],
+)
+
+
 TARGETS = [
     ("01-telegram-event-bot", "01-registration.bpmn", registration),
     ("01-telegram-event-bot", "02-reminders.bpmn", reminders),
@@ -746,6 +1061,12 @@ TARGETS = [
     ("06-maritime-etp", "02-voyage-tracking.bpmn", voyage_tracking),
     ("07-mass-hiring-platform", "01-candidate-journey.bpmn", candidate_journey),
     ("07-mass-hiring-platform", "02-driver-clearance.bpmn", driver_clearance),
+    ("08-oncology-symptom-tracker", "01-symptom-tracking.bpmn", symptom_tracking),
+    ("08-oncology-symptom-tracker", "02-medication-schedule.bpmn", medication_schedule),
+    ("09-b2b-task-messenger", "01-task-lifecycle.bpmn", task_lifecycle),
+    ("09-b2b-task-messenger", "02-crm-sync.bpmn", crm_sync),
+    ("10-construction-platform", "01-project-lifecycle.bpmn", project_lifecycle),
+    ("10-construction-platform", "02-stage-acceptance.bpmn", stage_acceptance),
 ]
 
 

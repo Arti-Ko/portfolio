@@ -1,0 +1,49 @@
+flowchart LR
+    subgraph Lane_cli["Клиент"]
+        direction LR
+        Start_need(("У клиента появилась<br/>задача"))
+        T_brief["Создать ТЗ: описание,<br/>бюджет, сроки, файлы"]
+        T_compare["Сравнить<br/>предложения"]
+        T_choose["Выбрать подрядчика"]
+        End_started(("Проект переведён<br/>в работу"))
+    end
+    subgraph Lane_mgr["Менеджер платформы"]
+        direction LR
+        T_validate["Проверить<br/>и уточнить ТЗ"]
+        G_ready{"ТЗ готово<br/>к тендеру?"}
+        T_open["Открыть<br/>закрытый тендер"]
+        T_clarify["Вернуть клиенту<br/>на уточнение"]
+        T_invite["Пригласить аккредитованных<br/>подрядчиков"]
+        End_draft(("ТЗ в черновике"))
+        T_check["Проверить полноту КП<br/>и адекватность смет"]
+        T_stages["Сформировать таблицу этапов<br/>из выбранного КП"]
+    end
+    subgraph Lane_con["Подрядчик"]
+        direction LR
+        T_bid["Подать КП<br/>с разбивкой по этапам"]
+    end
+    Start_need --> T_brief
+    T_brief --> T_validate
+    T_validate --> G_ready
+    G_ready -- "да" --> T_open
+    G_ready -- "нет" --> T_clarify
+    T_clarify --> End_draft
+    T_open --> T_invite
+    T_invite --> T_bid
+    T_bid --> T_check
+    T_check --> T_compare
+    T_compare --> T_choose
+    T_choose --> T_stages
+    T_stages --> End_started
+    classDef evStart fill:#1f7a3f,stroke:#0f4523,color:#ffffff
+    classDef evEnd fill:#8a1f1f,stroke:#4a0f0f,color:#ffffff
+    classDef gw fill:#e0a800,stroke:#8a6800,color:#1a1a1a
+    classDef userTask fill:#2b5d8a,stroke:#143349,color:#ffffff
+    classDef svcTask fill:#3a3f4b,stroke:#1b1e24,color:#ffffff
+    classDef msgTask fill:#5a3a7a,stroke:#2e1c40,color:#ffffff
+    class Start_need evStart
+    class T_brief,T_validate,T_bid,T_check,T_compare,T_choose userTask
+    class G_ready gw
+    class T_open,T_stages svcTask
+    class T_clarify,T_invite msgTask
+    class End_draft,End_started evEnd

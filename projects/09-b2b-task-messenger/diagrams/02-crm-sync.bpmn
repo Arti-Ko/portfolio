@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="Definitions_crm_sync"
+                  targetNamespace="http://bpmn.io/schema/bpmn"
+                  exporter="sa-portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
+  <bpmn:collaboration id="Collaboration_crm_sync">
+    <bpmn:participant id="Participant_crm_sync" name="Обмен состоянием задачи между мессенджером и CRM" processRef="Process_crm_sync" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_crm_sync" name="Двусторонняя синхронизация с CRM" isExecutable="false">
+    <bpmn:documentation>Исходящий журнал гарантирует, что изменение задачи и событие для CRM записываются вместе. Встречные изменения из CRM разрешаются по явному правилу приоритета.</bpmn:documentation>
+    <bpmn:laneSet id="LaneSet_crm_sync">
+      <bpmn:lane id="Lane_msg" name="Веб-мессенджер">
+        <bpmn:flowNodeRef>Start_change</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_write</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_apply</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_applied</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_synced</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_out" name="Исходящий журнал">
+        <bpmn:flowNodeRef>T_store</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_adp" name="Адаптер CRM">
+        <bpmn:flowNodeRef>T_read</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_map</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_ok</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_ack</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_retry</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_retry</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_inbound</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_conflict</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_crm" name="CRM">
+        <bpmn:flowNodeRef>T_push</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+      <bpmn:startEvent id="Start_change" name="Изменилось состояние
+задачи">
+        <bpmn:outgoing>Flow_01</bpmn:outgoing>
+        <bpmn:messageEventDefinition />
+      </bpmn:startEvent>
+      <bpmn:serviceTask id="T_write" name="Записать изменение и событие
+в одной транзакции">
+        <bpmn:incoming>Flow_01</bpmn:incoming>
+        <bpmn:outgoing>Flow_02</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_store" name="Сохранить событие
+до подтверждения">
+        <bpmn:incoming>Flow_02</bpmn:incoming>
+        <bpmn:outgoing>Flow_03</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_read" name="Прочитать
+неотправленные события">
+        <bpmn:incoming>Flow_03</bpmn:incoming>
+        <bpmn:outgoing>Flow_04</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_map" name="Сопоставить поля
+с моделью CRM">
+        <bpmn:incoming>Flow_04</bpmn:incoming>
+        <bpmn:outgoing>Flow_05</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_push" name="Обновить сделку">
+        <bpmn:incoming>Flow_05</bpmn:incoming>
+        <bpmn:outgoing>Flow_06</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:exclusiveGateway id="G_ok" name="Обновление
+принято?">
+        <bpmn:incoming>Flow_06</bpmn:incoming>
+        <bpmn:outgoing>Flow_07</bpmn:outgoing>
+        <bpmn:outgoing>Flow_08</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:serviceTask id="T_ack" name="Пометить событие
+доставленным">
+        <bpmn:incoming>Flow_07</bpmn:incoming>
+        <bpmn:outgoing>Flow_10</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_retry" name="Вернуть в очередь
+с нарастающей задержкой">
+        <bpmn:incoming>Flow_08</bpmn:incoming>
+        <bpmn:outgoing>Flow_09</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="End_retry" name="Повтор
+запланирован">
+        <bpmn:incoming>Flow_09</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:exclusiveGateway id="G_inbound" name="Есть встречное
+изменение из CRM?">
+        <bpmn:incoming>Flow_10</bpmn:incoming>
+        <bpmn:outgoing>Flow_11</bpmn:outgoing>
+        <bpmn:outgoing>Flow_12</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:serviceTask id="T_conflict" name="Сравнить версии
+и применить приоритет">
+        <bpmn:incoming>Flow_11</bpmn:incoming>
+        <bpmn:outgoing>Flow_13</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_apply" name="Применить изменение
+в мессенджере">
+        <bpmn:incoming>Flow_13</bpmn:incoming>
+        <bpmn:outgoing>Flow_14</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="End_applied" name="Состояния
+согласованы">
+        <bpmn:incoming>Flow_14</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:endEvent id="End_synced" name="Изменение
+доставлено">
+        <bpmn:incoming>Flow_12</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_01" sourceRef="Start_change" targetRef="T_write" />
+      <bpmn:sequenceFlow id="Flow_02" sourceRef="T_write" targetRef="T_store" />
+      <bpmn:sequenceFlow id="Flow_03" sourceRef="T_store" targetRef="T_read" />
+      <bpmn:sequenceFlow id="Flow_04" sourceRef="T_read" targetRef="T_map" />
+      <bpmn:sequenceFlow id="Flow_05" sourceRef="T_map" targetRef="T_push" />
+      <bpmn:sequenceFlow id="Flow_06" sourceRef="T_push" targetRef="G_ok" />
+      <bpmn:sequenceFlow id="Flow_07" name="да" sourceRef="G_ok" targetRef="T_ack" />
+      <bpmn:sequenceFlow id="Flow_08" name="нет" sourceRef="G_ok" targetRef="T_retry" />
+      <bpmn:sequenceFlow id="Flow_09" sourceRef="T_retry" targetRef="End_retry" />
+      <bpmn:sequenceFlow id="Flow_10" sourceRef="T_ack" targetRef="G_inbound" />
+      <bpmn:sequenceFlow id="Flow_11" name="да" sourceRef="G_inbound" targetRef="T_conflict" />
+      <bpmn:sequenceFlow id="Flow_12" name="нет" sourceRef="G_inbound" targetRef="End_synced" />
+      <bpmn:sequenceFlow id="Flow_13" sourceRef="T_conflict" targetRef="T_apply" />
+      <bpmn:sequenceFlow id="Flow_14" sourceRef="T_apply" targetRef="End_applied" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_crm_sync">
+    <bpmndi:BPMNPlane id="Plane_crm_sync" bpmnElement="Collaboration_crm_sync">
+      <bpmndi:BPMNShape id="Shape_Participant_crm_sync" bpmnElement="Participant_crm_sync" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="2350" height="980" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_msg" bpmnElement="Lane_msg" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="2320" height="310" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_out" bpmnElement="Lane_out" isHorizontal="true">
+        <dc:Bounds x="190" y="390" width="2320" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_adp" bpmnElement="Lane_adp" isHorizontal="true">
+        <dc:Bounds x="190" y="570" width="2320" height="310" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_crm" bpmnElement="Lane_crm" isHorizontal="true">
+        <dc:Bounds x="190" y="880" width="2320" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Start_change" bpmnElement="Start_change">
+        <dc:Bounds x="267" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="232" y="194" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_write" bpmnElement="T_write">
+        <dc:Bounds x="415" y="130" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_store" bpmnElement="T_store">
+        <dc:Bounds x="605" y="440" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_read" bpmnElement="T_read">
+        <dc:Bounds x="795" y="620" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_map" bpmnElement="T_map">
+        <dc:Bounds x="985" y="620" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_push" bpmnElement="T_push">
+        <dc:Bounds x="1175" y="930" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_G_ok" bpmnElement="G_ok">
+        <dc:Bounds x="1400" y="635" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1365" y="691" width="120" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_ack" bpmnElement="T_ack">
+        <dc:Bounds x="1555" y="620" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_retry" bpmnElement="T_retry">
+        <dc:Bounds x="1555" y="750" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_retry" bpmnElement="End_retry">
+        <dc:Bounds x="1787" y="772" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1752" y="814" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_G_inbound" bpmnElement="G_inbound">
+        <dc:Bounds x="1780" y="635" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1745" y="691" width="120" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_conflict" bpmnElement="T_conflict">
+        <dc:Bounds x="1935" y="620" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_apply" bpmnElement="T_apply">
+        <dc:Bounds x="2125" y="130" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_applied" bpmnElement="End_applied">
+        <dc:Bounds x="2357" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2322" y="194" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_synced" bpmnElement="End_synced">
+        <dc:Bounds x="2357" y="282" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2322" y="324" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_Flow_01" bpmnElement="Flow_01">
+        <di:waypoint x="303" y="170" />
+        <di:waypoint x="415" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_02" bpmnElement="Flow_02">
+        <di:waypoint x="535" y="170" />
+        <di:waypoint x="570" y="170" />
+        <di:waypoint x="570" y="480" />
+        <di:waypoint x="605" y="480" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_03" bpmnElement="Flow_03">
+        <di:waypoint x="725" y="480" />
+        <di:waypoint x="760" y="480" />
+        <di:waypoint x="760" y="660" />
+        <di:waypoint x="795" y="660" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_04" bpmnElement="Flow_04">
+        <di:waypoint x="915" y="660" />
+        <di:waypoint x="985" y="660" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_05" bpmnElement="Flow_05">
+        <di:waypoint x="1105" y="660" />
+        <di:waypoint x="1140" y="660" />
+        <di:waypoint x="1140" y="970" />
+        <di:waypoint x="1175" y="970" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_06" bpmnElement="Flow_06">
+        <di:waypoint x="1295" y="970" />
+        <di:waypoint x="1347" y="970" />
+        <di:waypoint x="1347" y="660" />
+        <di:waypoint x="1400" y="660" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_07" bpmnElement="Flow_07">
+        <di:waypoint x="1450" y="660" />
+        <di:waypoint x="1555" y="660" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1535" y="636" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_08" bpmnElement="Flow_08">
+        <di:waypoint x="1450" y="660" />
+        <di:waypoint x="1502" y="660" />
+        <di:waypoint x="1502" y="790" />
+        <di:waypoint x="1555" y="790" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1482" y="766" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_09" bpmnElement="Flow_09">
+        <di:waypoint x="1675" y="790" />
+        <di:waypoint x="1787" y="790" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_10" bpmnElement="Flow_10">
+        <di:waypoint x="1675" y="660" />
+        <di:waypoint x="1780" y="660" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_11" bpmnElement="Flow_11">
+        <di:waypoint x="1830" y="660" />
+        <di:waypoint x="1935" y="660" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1915" y="636" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_12" bpmnElement="Flow_12">
+        <di:waypoint x="1830" y="660" />
+        <di:waypoint x="2093" y="660" />
+        <di:waypoint x="2093" y="300" />
+        <di:waypoint x="2357" y="300" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2073" y="276" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_13" bpmnElement="Flow_13">
+        <di:waypoint x="2055" y="660" />
+        <di:waypoint x="2090" y="660" />
+        <di:waypoint x="2090" y="170" />
+        <di:waypoint x="2125" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_14" bpmnElement="Flow_14">
+        <di:waypoint x="2245" y="170" />
+        <di:waypoint x="2357" y="170" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

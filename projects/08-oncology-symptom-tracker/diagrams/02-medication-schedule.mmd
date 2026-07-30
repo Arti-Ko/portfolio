@@ -1,0 +1,55 @@
+flowchart LR
+    subgraph Lane_doc["Лечащий врач"]
+        direction LR
+        Start_plan(("Врач назначил<br/>схему приёма"))
+        T_flag["Показать врачу сигнал<br/>о систематических пропусках"]
+        End_flagged(("Врач уведомлён"))
+    end
+    subgraph Lane_app["Приложение"]
+        direction LR
+        T_schedule["Построить календарь<br/>приёмов"]
+        G_taken{"Приём<br/>подтверждён?"}
+        T_mark_ok["Зафиксировать приём"]
+        T_miss["Зафиксировать пропуск<br/>и показать инструкцию"]
+        T_stats["Обновить статистику<br/>приверженности"]
+        G_adherence{"Приверженность<br/>ниже порога?"}
+    end
+    subgraph Lane_sched["Планировщик"]
+        direction LR
+        T_tick["Отследить наступление<br/>времени приёма"]
+        T_remind["Отправить<br/>напоминание"]
+        T_repeat["Повторить напоминание<br/>в пределах окна"]
+        T_wait["Дождаться конца<br/>окна приёма"]
+    end
+    subgraph Lane_pat["Пациент"]
+        direction LR
+        T_confirm["Отметить приём<br/>препарата"]
+        End_ok(("Календарь актуален"))
+    end
+    Start_plan --> T_schedule
+    T_schedule --> T_tick
+    T_tick --> T_remind
+    T_remind --> T_confirm
+    T_confirm --> G_taken
+    G_taken -- "да" --> T_mark_ok
+    G_taken -- "нет" --> T_repeat
+    T_repeat --> T_wait
+    T_wait --> T_miss
+    T_mark_ok --> T_stats
+    T_miss --> T_stats
+    T_stats --> G_adherence
+    G_adherence -- "да" --> T_flag
+    G_adherence -- "нет" --> End_ok
+    T_flag --> End_flagged
+    classDef evStart fill:#1f7a3f,stroke:#0f4523,color:#ffffff
+    classDef evEnd fill:#8a1f1f,stroke:#4a0f0f,color:#ffffff
+    classDef gw fill:#e0a800,stroke:#8a6800,color:#1a1a1a
+    classDef userTask fill:#2b5d8a,stroke:#143349,color:#ffffff
+    classDef svcTask fill:#3a3f4b,stroke:#1b1e24,color:#ffffff
+    classDef msgTask fill:#5a3a7a,stroke:#2e1c40,color:#ffffff
+    class Start_plan evStart
+    class T_schedule,T_tick,T_mark_ok,T_wait,T_miss,T_stats svcTask
+    class T_remind,T_repeat,T_flag msgTask
+    class T_confirm userTask
+    class G_taken,G_adherence gw
+    class End_flagged,End_ok evEnd

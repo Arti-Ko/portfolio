@@ -1,0 +1,62 @@
+flowchart LR
+    subgraph Lane_cli["Клиент"]
+        direction LR
+        Start_task(("Клиент ставит задачу<br/>в мессенджере"))
+        T_review["Проверить результат"]
+        G_accept{"Результат принят?"}
+        T_rate["Оценить работу<br/>сотрудника"]
+        End_done(("Задача закрыта"))
+    end
+    subgraph Lane_bot["Telegram-бот"]
+        direction LR
+        T_parse["Разобрать заявку<br/>и определить тип"]
+    end
+    subgraph Lane_msg["Веб-мессенджер"]
+        direction LR
+        T_chat["Создать чат задачи<br/>и подключить участников"]
+        T_assign["Назначить<br/>ответственного"]
+        T_timer["Запустить таймер<br/>по нормативу"]
+        G_sla{"Уложились<br/>в норматив?"}
+        T_escalate["Эскалировать<br/>руководителю"]
+    end
+    subgraph Lane_emp["Сотрудник"]
+        direction LR
+        T_take["Принять задачу<br/>в работу"]
+        T_work["Выполнить задачу<br/>и приложить результат"]
+        T_rework["Вернуть задачу<br/>в работу"]
+        End_rework(("Задача<br/>на доработке"))
+    end
+    subgraph Lane_crm["CRM"]
+        direction LR
+        T_deal["Создать сделку"]
+        T_close["Закрыть сделку<br/>и записать оценку"]
+    end
+    Start_task --> T_parse
+    T_parse --> T_chat
+    T_chat --> T_deal
+    T_deal --> T_assign
+    T_assign --> T_take
+    T_take --> T_timer
+    T_timer --> T_work
+    T_work --> G_sla
+    G_sla -- "да" --> T_review
+    G_sla -- "нет" --> T_escalate
+    T_escalate --> T_review
+    T_review --> G_accept
+    G_accept -- "да" --> T_rate
+    G_accept -- "нет" --> T_rework
+    T_rework --> End_rework
+    T_rate --> T_close
+    T_close --> End_done
+    classDef evStart fill:#1f7a3f,stroke:#0f4523,color:#ffffff
+    classDef evEnd fill:#8a1f1f,stroke:#4a0f0f,color:#ffffff
+    classDef gw fill:#e0a800,stroke:#8a6800,color:#1a1a1a
+    classDef userTask fill:#2b5d8a,stroke:#143349,color:#ffffff
+    classDef svcTask fill:#3a3f4b,stroke:#1b1e24,color:#ffffff
+    classDef msgTask fill:#5a3a7a,stroke:#2e1c40,color:#ffffff
+    class Start_task evStart
+    class T_parse,T_chat,T_deal,T_assign,T_timer,T_close svcTask
+    class T_take,T_work,T_review,T_rate userTask
+    class G_sla,G_accept gw
+    class T_escalate,T_rework msgTask
+    class End_rework,End_done evEnd

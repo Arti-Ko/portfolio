@@ -1,0 +1,50 @@
+flowchart LR
+    subgraph Lane_msg["Веб-мессенджер"]
+        direction LR
+        Start_change(("Изменилось состояние<br/>задачи"))
+        T_write["Записать изменение и событие<br/>в одной транзакции"]
+        T_apply["Применить изменение<br/>в мессенджере"]
+        End_applied(("Состояния<br/>согласованы"))
+        End_synced(("Изменение<br/>доставлено"))
+    end
+    subgraph Lane_out["Исходящий журнал"]
+        direction LR
+        T_store["Сохранить событие<br/>до подтверждения"]
+    end
+    subgraph Lane_adp["Адаптер CRM"]
+        direction LR
+        T_read["Прочитать<br/>неотправленные события"]
+        T_map["Сопоставить поля<br/>с моделью CRM"]
+        G_ok{"Обновление<br/>принято?"}
+        T_ack["Пометить событие<br/>доставленным"]
+        T_retry["Вернуть в очередь<br/>с нарастающей задержкой"]
+        G_inbound{"Есть встречное<br/>изменение из CRM?"}
+        End_retry(("Повтор<br/>запланирован"))
+        T_conflict["Сравнить версии<br/>и применить приоритет"]
+    end
+    subgraph Lane_crm["CRM"]
+        direction LR
+        T_push["Обновить сделку"]
+    end
+    Start_change --> T_write
+    T_write --> T_store
+    T_store --> T_read
+    T_read --> T_map
+    T_map --> T_push
+    T_push --> G_ok
+    G_ok -- "да" --> T_ack
+    G_ok -- "нет" --> T_retry
+    T_retry --> End_retry
+    T_ack --> G_inbound
+    G_inbound -- "да" --> T_conflict
+    G_inbound -- "нет" --> End_synced
+    T_conflict --> T_apply
+    T_apply --> End_applied
+    classDef evStart fill:#1f7a3f,stroke:#0f4523,color:#ffffff
+    classDef evEnd fill:#8a1f1f,stroke:#4a0f0f,color:#ffffff
+    classDef gw fill:#e0a800,stroke:#8a6800,color:#1a1a1a
+    classDef svcTask fill:#3a3f4b,stroke:#1b1e24,color:#ffffff
+    class Start_change evStart
+    class T_write,T_store,T_read,T_map,T_push,T_ack,T_retry,T_conflict,T_apply svcTask
+    class G_ok,G_inbound gw
+    class End_retry,End_applied,End_synced evEnd

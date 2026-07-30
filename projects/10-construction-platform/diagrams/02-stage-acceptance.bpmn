@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="Definitions_stage_acceptance"
+                  targetNamespace="http://bpmn.io/schema/bpmn"
+                  exporter="sa-portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
+  <bpmn:collaboration id="Collaboration_stage_acceptance">
+    <bpmn:participant id="Participant_stage_acceptance" name="Эскроу-цикл одного этапа работ" processRef="Process_stage_acceptance" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_stage_acceptance" name="Приёмка и оплата этапа" isExecutable="false">
+    <bpmn:documentation>Деньги блокируются до начала работ и уходят подрядчику только после подтверждения приёмки клиентом. Выплату инициирует менеджер, а не автоматика.</bpmn:documentation>
+    <bpmn:laneSet id="LaneSet_stage_acceptance">
+      <bpmn:lane id="Lane_cli" name="Клиент">
+        <bpmn:flowNodeRef>Start_stage</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_pay</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_accept</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_stage</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_esc" name="Эскроу">
+        <bpmn:flowNodeRef>T_hold</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_payout</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_con" name="Подрядчик">
+        <bpmn:flowNodeRef>T_start</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_report</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_mgr" name="Менеджер платформы">
+        <bpmn:flowNodeRef>T_check</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_ok</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_return</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_rework</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_release</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_next</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+      <bpmn:startEvent id="Start_stage" name="Этап требует
+оплаты">
+        <bpmn:outgoing>Flow_01</bpmn:outgoing>
+        <bpmn:messageEventDefinition />
+      </bpmn:startEvent>
+      <bpmn:userTask id="T_pay" name="Оплатить этап">
+        <bpmn:incoming>Flow_01</bpmn:incoming>
+        <bpmn:outgoing>Flow_02</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:serviceTask id="T_hold" name="Заблокировать средства
+на эскроу-счёте">
+        <bpmn:incoming>Flow_02</bpmn:incoming>
+        <bpmn:outgoing>Flow_03</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:userTask id="T_start" name="Начать работу
+по этапу">
+        <bpmn:incoming>Flow_03</bpmn:incoming>
+        <bpmn:outgoing>Flow_04</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:userTask id="T_report" name="Запросить приёмку
+с фото- и видеоотчётом">
+        <bpmn:incoming>Flow_04</bpmn:incoming>
+        <bpmn:outgoing>Flow_05</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:userTask id="T_check" name="Проверить отчёт
+и соответствие объёму">
+        <bpmn:incoming>Flow_05</bpmn:incoming>
+        <bpmn:outgoing>Flow_06</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:exclusiveGateway id="G_ok" name="Отчёт принят
+менеджером?">
+        <bpmn:incoming>Flow_06</bpmn:incoming>
+        <bpmn:outgoing>Flow_07</bpmn:outgoing>
+        <bpmn:outgoing>Flow_08</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:sendTask id="T_return" name="Вернуть этап
+на доработку">
+        <bpmn:incoming>Flow_08</bpmn:incoming>
+        <bpmn:outgoing>Flow_09</bpmn:outgoing>
+      </bpmn:sendTask>
+      <bpmn:endEvent id="End_rework" name="Этап на доработке">
+        <bpmn:incoming>Flow_09</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:userTask id="T_accept" name="Подтвердить приёмку">
+        <bpmn:incoming>Flow_07</bpmn:incoming>
+        <bpmn:outgoing>Flow_10</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:userTask id="T_release" name="Инициировать выплату
+подрядчику">
+        <bpmn:incoming>Flow_10</bpmn:incoming>
+        <bpmn:outgoing>Flow_11</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:serviceTask id="T_payout" name="Перевести средства
+из эскроу">
+        <bpmn:incoming>Flow_11</bpmn:incoming>
+        <bpmn:outgoing>Flow_12</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_next" name="Перевести проект
+к следующему этапу">
+        <bpmn:incoming>Flow_12</bpmn:incoming>
+        <bpmn:outgoing>Flow_13</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="End_stage" name="Этап принят
+и оплачен">
+        <bpmn:incoming>Flow_13</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_01" sourceRef="Start_stage" targetRef="T_pay" />
+      <bpmn:sequenceFlow id="Flow_02" sourceRef="T_pay" targetRef="T_hold" />
+      <bpmn:sequenceFlow id="Flow_03" sourceRef="T_hold" targetRef="T_start" />
+      <bpmn:sequenceFlow id="Flow_04" sourceRef="T_start" targetRef="T_report" />
+      <bpmn:sequenceFlow id="Flow_05" sourceRef="T_report" targetRef="T_check" />
+      <bpmn:sequenceFlow id="Flow_06" sourceRef="T_check" targetRef="G_ok" />
+      <bpmn:sequenceFlow id="Flow_07" name="да" sourceRef="G_ok" targetRef="T_accept" />
+      <bpmn:sequenceFlow id="Flow_08" name="нет" sourceRef="G_ok" targetRef="T_return" />
+      <bpmn:sequenceFlow id="Flow_09" sourceRef="T_return" targetRef="End_rework" />
+      <bpmn:sequenceFlow id="Flow_10" sourceRef="T_accept" targetRef="T_release" />
+      <bpmn:sequenceFlow id="Flow_11" sourceRef="T_release" targetRef="T_payout" />
+      <bpmn:sequenceFlow id="Flow_12" sourceRef="T_payout" targetRef="T_next" />
+      <bpmn:sequenceFlow id="Flow_13" sourceRef="T_next" targetRef="End_stage" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_stage_acceptance">
+    <bpmndi:BPMNPlane id="Plane_stage_acceptance" bpmnElement="Collaboration_stage_acceptance">
+      <bpmndi:BPMNShape id="Shape_Participant_stage_acceptance" bpmnElement="Participant_stage_acceptance" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="2350" height="850" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_cli" bpmnElement="Lane_cli" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="2320" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_esc" bpmnElement="Lane_esc" isHorizontal="true">
+        <dc:Bounds x="190" y="260" width="2320" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_con" bpmnElement="Lane_con" isHorizontal="true">
+        <dc:Bounds x="190" y="440" width="2320" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_mgr" bpmnElement="Lane_mgr" isHorizontal="true">
+        <dc:Bounds x="190" y="620" width="2320" height="310" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Start_stage" bpmnElement="Start_stage">
+        <dc:Bounds x="267" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="232" y="194" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_pay" bpmnElement="T_pay">
+        <dc:Bounds x="415" y="130" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_hold" bpmnElement="T_hold">
+        <dc:Bounds x="605" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_start" bpmnElement="T_start">
+        <dc:Bounds x="795" y="490" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_report" bpmnElement="T_report">
+        <dc:Bounds x="985" y="490" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_check" bpmnElement="T_check">
+        <dc:Bounds x="1175" y="670" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_G_ok" bpmnElement="G_ok">
+        <dc:Bounds x="1400" y="685" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1365" y="741" width="120" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_return" bpmnElement="T_return">
+        <dc:Bounds x="1555" y="800" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_rework" bpmnElement="End_rework">
+        <dc:Bounds x="1787" y="822" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1752" y="864" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_accept" bpmnElement="T_accept">
+        <dc:Bounds x="1555" y="130" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_release" bpmnElement="T_release">
+        <dc:Bounds x="1745" y="670" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_payout" bpmnElement="T_payout">
+        <dc:Bounds x="1935" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_next" bpmnElement="T_next">
+        <dc:Bounds x="2125" y="670" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_stage" bpmnElement="End_stage">
+        <dc:Bounds x="2357" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2322" y="194" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_Flow_01" bpmnElement="Flow_01">
+        <di:waypoint x="303" y="170" />
+        <di:waypoint x="415" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_02" bpmnElement="Flow_02">
+        <di:waypoint x="535" y="170" />
+        <di:waypoint x="570" y="170" />
+        <di:waypoint x="570" y="350" />
+        <di:waypoint x="605" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_03" bpmnElement="Flow_03">
+        <di:waypoint x="725" y="350" />
+        <di:waypoint x="760" y="350" />
+        <di:waypoint x="760" y="530" />
+        <di:waypoint x="795" y="530" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_04" bpmnElement="Flow_04">
+        <di:waypoint x="915" y="530" />
+        <di:waypoint x="985" y="530" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_05" bpmnElement="Flow_05">
+        <di:waypoint x="1105" y="530" />
+        <di:waypoint x="1140" y="530" />
+        <di:waypoint x="1140" y="710" />
+        <di:waypoint x="1175" y="710" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_06" bpmnElement="Flow_06">
+        <di:waypoint x="1295" y="710" />
+        <di:waypoint x="1400" y="710" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_07" bpmnElement="Flow_07">
+        <di:waypoint x="1450" y="710" />
+        <di:waypoint x="1502" y="710" />
+        <di:waypoint x="1502" y="170" />
+        <di:waypoint x="1555" y="170" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1482" y="146" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_08" bpmnElement="Flow_08">
+        <di:waypoint x="1450" y="710" />
+        <di:waypoint x="1502" y="710" />
+        <di:waypoint x="1502" y="840" />
+        <di:waypoint x="1555" y="840" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1482" y="816" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_09" bpmnElement="Flow_09">
+        <di:waypoint x="1675" y="840" />
+        <di:waypoint x="1787" y="840" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_10" bpmnElement="Flow_10">
+        <di:waypoint x="1675" y="170" />
+        <di:waypoint x="1710" y="170" />
+        <di:waypoint x="1710" y="710" />
+        <di:waypoint x="1745" y="710" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_11" bpmnElement="Flow_11">
+        <di:waypoint x="1865" y="710" />
+        <di:waypoint x="1900" y="710" />
+        <di:waypoint x="1900" y="350" />
+        <di:waypoint x="1935" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_12" bpmnElement="Flow_12">
+        <di:waypoint x="2055" y="350" />
+        <di:waypoint x="2090" y="350" />
+        <di:waypoint x="2090" y="710" />
+        <di:waypoint x="2125" y="710" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_13" bpmnElement="Flow_13">
+        <di:waypoint x="2245" y="710" />
+        <di:waypoint x="2301" y="710" />
+        <di:waypoint x="2301" y="170" />
+        <di:waypoint x="2357" y="170" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

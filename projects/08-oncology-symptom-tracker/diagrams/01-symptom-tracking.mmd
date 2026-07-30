@@ -1,0 +1,52 @@
+flowchart LR
+    subgraph Lane_pat["Пациент"]
+        direction LR
+        Start_open(("Пациент открыл<br/>дневник"))
+        T_log["Отметить симптомы<br/>по шкале"]
+        End_done(("Запись сохранена"))
+    end
+    subgraph Lane_app["Приложение"]
+        direction LR
+        T_template["Подставить шаблон<br/>по нозологии"]
+        T_advice["Показать рекомендацию<br/>по самопомощи"]
+        T_store["Сохранить запись<br/>в дневнике"]
+    end
+    subgraph Lane_rules["Модуль оценки"]
+        direction LR
+        T_grade["Оценить степень тяжести<br/>по клинической шкале"]
+        G_severity{"Тяжесть<br/>выше порога?"}
+    end
+    subgraph Lane_doc["Лечащий врач"]
+        direction LR
+        T_notify_doc["Поднять флаг<br/>лечащему врачу"]
+        T_review["Посмотреть динамику<br/>симптомов"]
+        G_action{"Требуется<br/>вмешательство?"}
+        T_contact["Связаться с пациентом<br/>и скорректировать терапию"]
+        T_mark["Отметить<br/>как наблюдение"]
+    end
+    Start_open --> T_log
+    T_log --> T_template
+    T_template --> T_grade
+    T_grade --> G_severity
+    G_severity -- "нет" --> T_advice
+    G_severity -- "да" --> T_notify_doc
+    T_notify_doc --> T_review
+    T_review --> G_action
+    G_action -- "да" --> T_contact
+    G_action -- "нет" --> T_mark
+    T_advice --> T_store
+    T_contact --> T_store
+    T_mark --> T_store
+    T_store --> End_done
+    classDef evStart fill:#1f7a3f,stroke:#0f4523,color:#ffffff
+    classDef evEnd fill:#8a1f1f,stroke:#4a0f0f,color:#ffffff
+    classDef gw fill:#e0a800,stroke:#8a6800,color:#1a1a1a
+    classDef userTask fill:#2b5d8a,stroke:#143349,color:#ffffff
+    classDef svcTask fill:#3a3f4b,stroke:#1b1e24,color:#ffffff
+    classDef msgTask fill:#5a3a7a,stroke:#2e1c40,color:#ffffff
+    class Start_open evStart
+    class T_log,T_review,T_contact,T_mark userTask
+    class T_template,T_grade,T_store svcTask
+    class G_severity,G_action gw
+    class T_advice,T_notify_doc msgTask
+    class End_done evEnd

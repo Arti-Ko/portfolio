@@ -133,6 +133,60 @@ user flow-диаграммы со свимлейнами и закрывает �
 
 ---
 
+### [8. Трекер симптомов для онкопациентов](projects/08-oncology-symptom-tracker/)
+
+`HEALTHTECH` · discovery, регуляторный анализ, финансовая модель
+
+Мобильное приложение для онкопациентов: дневник симптомов, справочник,
+календарь препаратов. Discovery-фаза: доказательная база, размер рынка,
+регуляторная развилка «медизделие или нет», модель монетизации.
+
+**+5 месяцев** жизни по данным исследований · **4,4 млн** пациентов на учёте
+
+[Discovery](projects/08-oncology-symptom-tracker/discovery.md) ·
+[BPMN](projects/08-oncology-symptom-tracker/bpmn.md) ·
+[C4](projects/08-oncology-symptom-tracker/c4.md) ·
+[User Stories](projects/08-oncology-symptom-tracker/user-stories.md) ·
+[Use Cases](projects/08-oncology-symptom-tracker/use-cases.md)
+
+---
+
+### [9. B2B веб-мессенджер клиентских задач](projects/09-b2b-task-messenger/)
+
+`B2B SAAS` · real-time, интеграция с CRM, 152-ФЗ
+
+Веб-мессенджер задач с двусторонней синхронизацией с CRM. Ключевой вывод
+анализа: клиент остаётся в привычном мессенджере, а веб решает задачу
+сотрудников — два канала над одной сущностью.
+
+**3 000** параллельных сессий · **37** вопросов discovery-вопросника
+
+[Вопросник](projects/09-b2b-task-messenger/discovery-questions.md) ·
+[BPMN](projects/09-b2b-task-messenger/bpmn.md) ·
+[C4](projects/09-b2b-task-messenger/c4.md) ·
+[User Stories](projects/09-b2b-task-messenger/user-stories.md) ·
+[Use Cases](projects/09-b2b-task-messenger/use-cases.md)
+
+---
+
+### [10. B2B-платформа управления стройпроектами](projects/10-construction-platform/)
+
+`B2B / CONSTRUCTION` · работа с противоречивыми требованиями
+
+Платформа полного цикла: ТЗ, закрытый тендер, этапы работ, эскроу,
+приёмка. Главный артефакт — журнал приведения противоречивого RFP к
+одной непротиворечивой версии.
+
+**20** разрешённых противоречий требований · **3** роли с разными интерфейсами
+
+[Журнал решений](projects/10-construction-platform/requirements-log.md) ·
+[BPMN](projects/10-construction-platform/bpmn.md) ·
+[C4](projects/10-construction-platform/c4.md) ·
+[User Stories](projects/10-construction-platform/user-stories.md) ·
+[Use Cases](projects/10-construction-platform/use-cases.md)
+
+---
+
 ## Что где лежит
 
 ```
@@ -150,7 +204,10 @@ projects/
 ├── 04-sporttech-fantasy/  — user-flow.md вместо bpmn/c4
 ├── 05-enterprise-ai-assistants/ — + threat-model.md
 ├── 06-maritime-etp/       — + delivery-plan.md
-└── 07-mass-hiring-platform/     — + adr-event-bus.md
+├── 07-mass-hiring-platform/     — + adr-event-bus.md
+├── 08-oncology-symptom-tracker/ — + discovery.md
+├── 09-b2b-task-messenger/       — + discovery-questions.md
+└── 10-construction-platform/    — + requirements-log.md
 tools/                     — генератор BPMN и Mermaid из моделей
 ```
 
@@ -188,6 +245,6 @@ python3 tools/build_diagrams.py
 
 Зависимостей нет — только стандартная библиотека Python 3.10+.
 
-Все тринадцать моделей проверены парсером `bpmn-moddle` (тот же, что использует
+Все девятнадцать моделей проверены парсером `bpmn-moddle` (тот же, что использует
 bpmn.io) на уникальность идентификаторов, полноту дорожек, связность графа и
 наличие DI-элементов для каждого узла и связи.

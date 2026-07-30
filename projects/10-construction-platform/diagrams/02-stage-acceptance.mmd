@@ -1,0 +1,52 @@
+flowchart LR
+    subgraph Lane_cli["Клиент"]
+        direction LR
+        Start_stage(("Этап требует<br/>оплаты"))
+        T_pay["Оплатить этап"]
+        T_accept["Подтвердить приёмку"]
+        End_stage(("Этап принят<br/>и оплачен"))
+    end
+    subgraph Lane_esc["Эскроу"]
+        direction LR
+        T_hold["Заблокировать средства<br/>на эскроу-счёте"]
+        T_payout["Перевести средства<br/>из эскроу"]
+    end
+    subgraph Lane_con["Подрядчик"]
+        direction LR
+        T_start["Начать работу<br/>по этапу"]
+        T_report["Запросить приёмку<br/>с фото- и видеоотчётом"]
+    end
+    subgraph Lane_mgr["Менеджер платформы"]
+        direction LR
+        T_check["Проверить отчёт<br/>и соответствие объёму"]
+        G_ok{"Отчёт принят<br/>менеджером?"}
+        T_return["Вернуть этап<br/>на доработку"]
+        T_release["Инициировать выплату<br/>подрядчику"]
+        End_rework(("Этап на доработке"))
+        T_next["Перевести проект<br/>к следующему этапу"]
+    end
+    Start_stage --> T_pay
+    T_pay --> T_hold
+    T_hold --> T_start
+    T_start --> T_report
+    T_report --> T_check
+    T_check --> G_ok
+    G_ok -- "да" --> T_accept
+    G_ok -- "нет" --> T_return
+    T_return --> End_rework
+    T_accept --> T_release
+    T_release --> T_payout
+    T_payout --> T_next
+    T_next --> End_stage
+    classDef evStart fill:#1f7a3f,stroke:#0f4523,color:#ffffff
+    classDef evEnd fill:#8a1f1f,stroke:#4a0f0f,color:#ffffff
+    classDef gw fill:#e0a800,stroke:#8a6800,color:#1a1a1a
+    classDef userTask fill:#2b5d8a,stroke:#143349,color:#ffffff
+    classDef svcTask fill:#3a3f4b,stroke:#1b1e24,color:#ffffff
+    classDef msgTask fill:#5a3a7a,stroke:#2e1c40,color:#ffffff
+    class Start_stage evStart
+    class T_pay,T_start,T_report,T_check,T_accept,T_release userTask
+    class T_hold,T_payout,T_next svcTask
+    class G_ok gw
+    class T_return msgTask
+    class End_rework,End_stage evEnd
