@@ -242,7 +242,7 @@ def render(model: Model) -> str:
         '                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
         f'                  id="Definitions_{model.id}"',
         '                  targetNamespace="http://bpmn.io/schema/bpmn"',
-        '                  exporter="sa-portfolio/tools/bpmn_gen.py" exporterVersion="1.0">',
+        '                  exporter="portfolio/tools/bpmn_gen.py" exporterVersion="1.0">',
         f'  <bpmn:collaboration id="Collaboration_{model.id}">',
         f'    <bpmn:participant id="Participant_{model.id}" '
         f'name="{escape(model.pool_name)}" processRef="{proc_id}" />',

@@ -6,7 +6,7 @@
                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                   id="Definitions_dubbing_pipeline"
                   targetNamespace="http://bpmn.io/schema/bpmn"
-                  exporter="sa-portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
+                  exporter="portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
   <bpmn:collaboration id="Collaboration_dubbing_pipeline">
     <bpmn:participant id="Participant_dubbing_pipeline" name="Пайплайн AI-озвучки" processRef="Process_dubbing_pipeline" />
   </bpmn:collaboration>

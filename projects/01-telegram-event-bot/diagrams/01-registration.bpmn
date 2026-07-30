@@ -6,7 +6,7 @@
                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                   id="Definitions_event_registration"
                   targetNamespace="http://bpmn.io/schema/bpmn"
-                  exporter="sa-portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
+                  exporter="portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
   <bpmn:collaboration id="Collaboration_event_registration">
     <bpmn:participant id="Participant_event_registration" name="Регистрация на мероприятие через Telegram" processRef="Process_event_registration" />
   </bpmn:collaboration>

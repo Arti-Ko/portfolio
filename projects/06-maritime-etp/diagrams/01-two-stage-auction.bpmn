@@ -6,7 +6,7 @@
                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                   id="Definitions_two_stage_auction"
                   targetNamespace="http://bpmn.io/schema/bpmn"
-                  exporter="sa-portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
+                  exporter="portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
   <bpmn:collaboration id="Collaboration_two_stage_auction">
     <bpmn:participant id="Participant_two_stage_auction" name="ЭТП: предотбор и финальные торги" processRef="Process_two_stage_auction" />
   </bpmn:collaboration>

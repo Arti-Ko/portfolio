@@ -6,7 +6,7 @@
                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                   id="Definitions_phi_anonymization"
                   targetNamespace="http://bpmn.io/schema/bpmn"
-                  exporter="sa-portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
+                  exporter="portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
   <bpmn:collaboration id="Collaboration_phi_anonymization">
     <bpmn:participant id="Participant_phi_anonymization" name="Сервис обезличивания ПДн" processRef="Process_phi_anonymization" />
   </bpmn:collaboration>

@@ -6,7 +6,7 @@
                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                   id="Definitions_event_reminders"
                   targetNamespace="http://bpmn.io/schema/bpmn"
-                  exporter="sa-portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
+                  exporter="portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
   <bpmn:collaboration id="Collaboration_event_reminders">
     <bpmn:participant id="Participant_event_reminders" name="Напоминания за 24 ч и 1 ч до события" processRef="Process_event_reminders" />
   </bpmn:collaboration>

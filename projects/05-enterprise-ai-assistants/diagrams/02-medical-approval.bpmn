@@ -6,7 +6,7 @@
                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                   id="Definitions_medical_approval"
                   targetNamespace="http://bpmn.io/schema/bpmn"
-                  exporter="sa-portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
+                  exporter="portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
   <bpmn:collaboration id="Collaboration_medical_approval">
     <bpmn:participant id="Participant_medical_approval" name="Проверка протокола клиники на соответствие правилам" processRef="Process_medical_approval" />
   </bpmn:collaboration>

@@ -6,7 +6,7 @@
                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                   id="Definitions_task_lifecycle"
                   targetNamespace="http://bpmn.io/schema/bpmn"
-                  exporter="sa-portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
+                  exporter="portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
   <bpmn:collaboration id="Collaboration_task_lifecycle">
     <bpmn:participant id="Participant_task_lifecycle" name="Постановка, выполнение и оценка задачи" processRef="Process_task_lifecycle" />
   </bpmn:collaboration>

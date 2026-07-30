@@ -6,7 +6,7 @@
                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                   id="Definitions_voyage_tracking"
                   targetNamespace="http://bpmn.io/schema/bpmn"
-                  exporter="sa-portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
+                  exporter="portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
   <bpmn:collaboration id="Collaboration_voyage_tracking">
     <bpmn:participant id="Participant_voyage_tracking" name="ЭТП: исполнение перевозки" processRef="Process_voyage_tracking" />
   </bpmn:collaboration>

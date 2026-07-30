@@ -6,7 +6,7 @@
                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                   id="Definitions_candidate_journey"
                   targetNamespace="http://bpmn.io/schema/bpmn"
-                  exporter="sa-portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
+                  exporter="portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
   <bpmn:collaboration id="Collaboration_candidate_journey">
     <bpmn:participant id="Participant_candidate_journey" name="Массовый найм самозанятых и ИП" processRef="Process_candidate_journey" />
   </bpmn:collaboration>

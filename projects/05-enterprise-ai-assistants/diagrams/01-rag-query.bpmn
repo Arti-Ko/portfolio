@@ -6,7 +6,7 @@
                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                   id="Definitions_rag_query"
                   targetNamespace="http://bpmn.io/schema/bpmn"
-                  exporter="sa-portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
+                  exporter="portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
   <bpmn:collaboration id="Collaboration_rag_query">
     <bpmn:participant id="Participant_rag_query" name="AI-Librarium: поиск по локальным нормативным актам" processRef="Process_rag_query" />
   </bpmn:collaboration>
