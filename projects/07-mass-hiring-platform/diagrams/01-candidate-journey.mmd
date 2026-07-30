@@ -1,0 +1,69 @@
+flowchart LR
+    subgraph Lane_cand["Кандидат"]
+        direction LR
+        Start_apply(("Кандидат<br/>открыл анкету"))
+        T_personal["Заполнить<br/>персональные данные"]
+        T_form["Выбрать форму занятости:<br/>самозанятый или ИП"]
+        T_upload["Загрузить документы"]
+        T_pass["Пройти тест<br/>и собеседование"]
+        End_hired(("Кандидат<br/>трудоустроен"))
+    end
+    subgraph Lane_portal["Портал найма"]
+        direction LR
+        T_docs["Запросить документы<br/>по выбранной форме"]
+        T_test["Выдать тест<br/>и назначить собеседование"]
+        T_hire["Оформить<br/>трудоустройство"]
+    end
+    subgraph Lane_checks["Проверки"]
+        direction LR
+        T_fns["Проверить налоговый статус<br/>в ФНС"]
+        G_status{"Статус<br/>подтверждён?"}
+        T_sb["Проверка<br/>службы безопасности"]
+        T_help["Показать инструкцию<br/>по регистрации статуса"]
+        G_sb{"Проверка<br/>пройдена?"}
+        End_pending(("Кандидат вне воронки<br/>до регистрации"))
+        T_reject["Отказать<br/>с фиксацией причины"]
+        End_rejected(("Кандидат отклонён"))
+    end
+    subgraph Lane_hr["HR и руководитель"]
+        direction LR
+        G_branch{"Логистическое<br/>направление?"}
+        T_bdd["Направить на медконтроль<br/>и проверку БДД"]
+        End_to_med(("Передано<br/>в контур допуска"))
+    end
+    subgraph Lane_ext["Внешние системы"]
+        direction LR
+        T_sync["Синхронизировать<br/>с CRM и шиной событий"]
+    end
+    Start_apply --> T_personal
+    T_personal --> T_form
+    T_form --> T_docs
+    T_docs --> T_upload
+    T_upload --> T_fns
+    T_fns --> G_status
+    G_status -- "да" --> T_sb
+    G_status -- "нет" --> T_help
+    T_help --> End_pending
+    T_sb --> G_sb
+    G_sb -- "да" --> T_test
+    G_sb -- "нет" --> T_reject
+    T_reject --> End_rejected
+    T_test --> T_pass
+    T_pass --> G_branch
+    G_branch -- "нет" --> T_hire
+    G_branch -- "да" --> T_bdd
+    T_bdd --> End_to_med
+    T_hire --> T_sync
+    T_sync --> End_hired
+    classDef evStart fill:#1f7a3f,stroke:#0f4523,color:#ffffff
+    classDef evEnd fill:#8a1f1f,stroke:#4a0f0f,color:#ffffff
+    classDef gw fill:#e0a800,stroke:#8a6800,color:#1a1a1a
+    classDef userTask fill:#2b5d8a,stroke:#143349,color:#ffffff
+    classDef svcTask fill:#3a3f4b,stroke:#1b1e24,color:#ffffff
+    classDef msgTask fill:#5a3a7a,stroke:#2e1c40,color:#ffffff
+    class Start_apply evStart
+    class T_personal,T_form,T_upload,T_pass userTask
+    class T_docs,T_help,T_reject,T_test,T_bdd msgTask
+    class T_fns,T_sb,T_hire,T_sync svcTask
+    class G_status,G_sb,G_branch gw
+    class End_pending,End_rejected,End_to_med,End_hired evEnd

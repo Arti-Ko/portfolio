@@ -78,6 +78,61 @@ user flow-диаграммы со свимлейнами и закрывает �
 
 ---
 
+### [5. Enterprise AI-помощники для страховой компании](projects/05-enterprise-ai-assistants/)
+
+`ENTERPRISE / INSURTECH` · on-premises LLM, RAG, граф знаний, OCR
+
+Четыре параллельных AI-продукта в закрытом контуре: поиск по нормативной
+базе, согласование медицинских назначений, паспорт проверки контрагентов,
+помощник по закупкам. Жёсткое ограничение — никакого облачного ИИ,
+только локальные модели.
+
+**~45 млн ₽** бюджет программы · **4** продукта · **~2000** документов в базе знаний
+
+[BPMN](projects/05-enterprise-ai-assistants/bpmn.md) ·
+[C4](projects/05-enterprise-ai-assistants/c4.md) ·
+[User Stories](projects/05-enterprise-ai-assistants/user-stories.md) ·
+[Use Cases](projects/05-enterprise-ai-assistants/use-cases.md) ·
+[Модель угроз](projects/05-enterprise-ai-assistants/threat-model.md)
+
+---
+
+### [6. ЭТП для морских грузоперевозок](projects/06-maritime-etp/)
+
+`LOGISTICS / MARITIME` · двухэтапные торги, электронная подпись, AIS
+
+Электронная торговая площадка для перевозок в арктической акватории:
+предотбор по ледовому классу и допускам, ценовые торги среди допущенных,
+отслеживание судна по AIS, полный отказ от бумажных документов.
+
+**4** роли участников · **3** этапа поставки · цель — сделка без единого бумажного документа
+
+[BPMN](projects/06-maritime-etp/bpmn.md) ·
+[C4](projects/06-maritime-etp/c4.md) ·
+[User Stories](projects/06-maritime-etp/user-stories.md) ·
+[Use Cases](projects/06-maritime-etp/use-cases.md) ·
+[План поставки](projects/06-maritime-etp/delivery-plan.md)
+
+---
+
+### [7. HR-платформа массового найма](projects/07-mass-hiring-platform/)
+
+`HR-TECH / ENTERPRISE` · интеграционная архитектура, событийная шина
+
+Внутренний портал найма самозанятых и ИП для крупной экосистемы. Шесть
+внешних интеграций, из которых ни одна не должна ронять воронку;
+дополнительный контур медконтроля и допуска для водителей.
+
+**80 000** пользователей · **100** запросов в секунду · **6** интеграций
+
+[BPMN](projects/07-mass-hiring-platform/bpmn.md) ·
+[C4](projects/07-mass-hiring-platform/c4.md) ·
+[User Stories](projects/07-mass-hiring-platform/user-stories.md) ·
+[Use Cases](projects/07-mass-hiring-platform/use-cases.md) ·
+[ADR](projects/07-mass-hiring-platform/adr-event-bus.md)
+
+---
+
 ## Что где лежит
 
 ```
@@ -92,7 +147,10 @@ projects/
 │   └── c4/workspace.dsl   — Structurizr DSL
 ├── 02-ai-dubbing/         — та же структура
 ├── 03-medical-anonymizer/ — + test-matrix.md, compliance.md
-└── 04-sporttech-fantasy/  — user-flow.md вместо bpmn/c4
+├── 04-sporttech-fantasy/  — user-flow.md вместо bpmn/c4
+├── 05-enterprise-ai-assistants/ — + threat-model.md
+├── 06-maritime-etp/       — + delivery-plan.md
+└── 07-mass-hiring-platform/     — + adr-event-bus.md
 tools/                     — генератор BPMN и Mermaid из моделей
 ```
 
@@ -130,6 +188,6 @@ python3 tools/build_diagrams.py
 
 Зависимостей нет — только стандартная библиотека Python 3.10+.
 
-Все семь моделей проверены парсером `bpmn-moddle` (тот же, что использует
+Все тринадцать моделей проверены парсером `bpmn-moddle` (тот же, что использует
 bpmn.io) на уникальность идентификаторов, полноту дорожек, связность графа и
 наличие DI-элементов для каждого узла и связи.

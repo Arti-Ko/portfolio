@@ -1,0 +1,56 @@
+flowchart LR
+    subgraph Lane_ship["Судовладелец"]
+        direction LR
+        Start_load(("Судно подано<br/>под погрузку"))
+    end
+    subgraph Lane_port["Порт и терминал"]
+        direction LR
+        T_slot["Подтвердить слот<br/>и начать погрузку"]
+        T_arrive["Принять судно<br/>и разгрузить"]
+        T_act["Сформировать акт<br/>приёма-передачи"]
+    end
+    subgraph Lane_etp["ЭТП"]
+        direction LR
+        T_bol["Сформировать коносамент<br/>по факту погрузки"]
+        T_track["Обновлять положение<br/>на карте"]
+        G_dev{"Отклонение<br/>от маршрута или срока?"}
+        T_alert["Уведомить стороны<br/>и зафиксировать событие"]
+        T_close["Закрыть сделку<br/>и обновить рейтинги"]
+    end
+    subgraph Lane_ext["AIS и электронная подпись"]
+        direction LR
+        T_sign_bol["Подписать коносамент<br/>электронной подписью"]
+        T_ais["Передавать координаты<br/>судна по AIS"]
+        T_sign_act["Подписать акт<br/>электронной подписью"]
+    end
+    subgraph Lane_cargo["Грузовладелец"]
+        direction LR
+        T_watch["Следить за рейсом<br/>в личном кабинете"]
+        End_done(("Перевозка закрыта<br/>без бумаги"))
+    end
+    Start_load --> T_slot
+    T_slot --> T_bol
+    T_bol --> T_sign_bol
+    T_sign_bol --> T_ais
+    T_ais --> T_track
+    T_track --> T_watch
+    T_watch --> G_dev
+    G_dev -- "нет" --> T_arrive
+    G_dev -- "да" --> T_alert
+    T_alert --> T_arrive
+    T_arrive --> T_act
+    T_act --> T_sign_act
+    T_sign_act --> T_close
+    T_close --> End_done
+    classDef evStart fill:#1f7a3f,stroke:#0f4523,color:#ffffff
+    classDef evEnd fill:#8a1f1f,stroke:#4a0f0f,color:#ffffff
+    classDef gw fill:#e0a800,stroke:#8a6800,color:#1a1a1a
+    classDef userTask fill:#2b5d8a,stroke:#143349,color:#ffffff
+    classDef svcTask fill:#3a3f4b,stroke:#1b1e24,color:#ffffff
+    classDef msgTask fill:#5a3a7a,stroke:#2e1c40,color:#ffffff
+    class Start_load evStart
+    class T_slot,T_watch,T_arrive userTask
+    class T_bol,T_sign_bol,T_ais,T_track,T_act,T_sign_act,T_close svcTask
+    class G_dev gw
+    class T_alert msgTask
+    class End_done evEnd

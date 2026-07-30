@@ -1,0 +1,62 @@
+flowchart LR
+    subgraph Lane_cargo["Грузовладелец"]
+        direction LR
+        Start_need(("Возникла потребность<br/>в перевозке"))
+        T_lot["Сформировать лот:<br/>груз, маршрут, окно"]
+        End_deal(("Сделка заключена"))
+    end
+    subgraph Lane_etp["ЭТП"]
+        direction LR
+        T_publish["Опубликовать лот<br/>и открыть предотбор"]
+        T_verify["Проверить компанию,<br/>допуски и ледовый класс"]
+        G_pass{"Предотбор пройден?"}
+        T_admit["Допустить<br/>к финальным торгам"]
+        T_refuse["Отклонить<br/>с указанием причины"]
+        End_refused(("Участник не допущен"))
+        G_enough{"Допущенных<br/>достаточно?"}
+        T_auction["Запустить<br/>финальные торги"]
+        T_fail["Признать торги<br/>несостоявшимися"]
+        End_failed(("Торги<br/>не состоялись"))
+        T_close["Закрыть торги по таймеру<br/>и определить победителя"]
+        T_contract["Сформировать проект<br/>договора перевозки"]
+        T_register["Зарегистрировать сделку<br/>и открыть отслеживание"]
+    end
+    subgraph Lane_ship["Судовладелец"]
+        direction LR
+        T_apply["Подать заявку<br/>на предотбор"]
+        T_bid["Подавать<br/>ценовые предложения"]
+    end
+    subgraph Lane_ext["Внешние сервисы"]
+        direction LR
+        T_sign["Подписать документы<br/>электронной подписью"]
+    end
+    Start_need --> T_lot
+    T_lot --> T_publish
+    T_publish --> T_apply
+    T_apply --> T_verify
+    T_verify --> G_pass
+    G_pass -- "да" --> T_admit
+    G_pass -- "нет" --> T_refuse
+    T_refuse --> End_refused
+    T_admit --> G_enough
+    G_enough -- "да" --> T_auction
+    G_enough -- "нет" --> T_fail
+    T_fail --> End_failed
+    T_auction --> T_bid
+    T_bid --> T_close
+    T_close --> T_contract
+    T_contract --> T_sign
+    T_sign --> T_register
+    T_register --> End_deal
+    classDef evStart fill:#1f7a3f,stroke:#0f4523,color:#ffffff
+    classDef evEnd fill:#8a1f1f,stroke:#4a0f0f,color:#ffffff
+    classDef gw fill:#e0a800,stroke:#8a6800,color:#1a1a1a
+    classDef userTask fill:#2b5d8a,stroke:#143349,color:#ffffff
+    classDef svcTask fill:#3a3f4b,stroke:#1b1e24,color:#ffffff
+    classDef msgTask fill:#5a3a7a,stroke:#2e1c40,color:#ffffff
+    class Start_need evStart
+    class T_lot,T_apply,T_bid userTask
+    class T_publish,T_verify,T_admit,T_fail,T_auction,T_close,T_contract,T_sign,T_register svcTask
+    class G_pass,G_enough gw
+    class T_refuse msgTask
+    class End_refused,End_failed,End_deal evEnd

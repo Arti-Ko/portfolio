@@ -1,0 +1,57 @@
+flowchart LR
+    subgraph Lane_cand["Кандидат"]
+        direction LR
+        Start_bdd(("Кандидат направлен<br/>на допуск"))
+        T_visit["Пройти медосмотр"]
+        End_ok(("Кандидат допущен<br/>к работе"))
+    end
+    subgraph Lane_portal["Портал найма"]
+        direction LR
+        T_book["Записать на медосмотр<br/>в партнёрской сети"]
+        G_med{"Заключение<br/>положительное?"}
+        T_med_no["Зафиксировать отказ<br/>по медицинским основаниям"]
+        End_med_no(("Допуск не выдан"))
+        T_grant["Открыть доступ к сменам<br/>и оформить трудоустройство"]
+    end
+    subgraph Lane_med["Медицинский партнёр"]
+        direction LR
+        T_result["Передать заключение<br/>в портал"]
+    end
+    subgraph Lane_bdd["Специалист БДД"]
+        direction LR
+        T_license["Проверить удостоверение<br/>и стаж"]
+        T_violations["Запросить историю<br/>нарушений"]
+        G_bdd{"Профиль риска<br/>допустим?"}
+        T_bdd_no["Отказать в допуске<br/>к управлению"]
+        End_bdd_no(("Допуск<br/>к транспорту закрыт"))
+    end
+    subgraph Lane_sb["Служба безопасности"]
+        direction LR
+        T_final["Согласовать допуск"]
+    end
+    Start_bdd --> T_book
+    T_book --> T_visit
+    T_visit --> T_result
+    T_result --> G_med
+    G_med -- "да" --> T_license
+    G_med -- "нет" --> T_med_no
+    T_med_no --> End_med_no
+    T_license --> T_violations
+    T_violations --> G_bdd
+    G_bdd -- "да" --> T_final
+    G_bdd -- "нет" --> T_bdd_no
+    T_bdd_no --> End_bdd_no
+    T_final --> T_grant
+    T_grant --> End_ok
+    classDef evStart fill:#1f7a3f,stroke:#0f4523,color:#ffffff
+    classDef evEnd fill:#8a1f1f,stroke:#4a0f0f,color:#ffffff
+    classDef gw fill:#e0a800,stroke:#8a6800,color:#1a1a1a
+    classDef userTask fill:#2b5d8a,stroke:#143349,color:#ffffff
+    classDef svcTask fill:#3a3f4b,stroke:#1b1e24,color:#ffffff
+    classDef msgTask fill:#5a3a7a,stroke:#2e1c40,color:#ffffff
+    class Start_bdd evStart
+    class T_book,T_result,T_license,T_violations,T_grant svcTask
+    class T_visit,T_final userTask
+    class G_med,G_bdd gw
+    class T_med_no,T_bdd_no msgTask
+    class End_med_no,End_bdd_no,End_ok evEnd

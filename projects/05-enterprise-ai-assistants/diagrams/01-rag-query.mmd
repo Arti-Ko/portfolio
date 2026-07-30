@@ -1,0 +1,62 @@
+flowchart LR
+    subgraph Lane_emp["Сотрудник"]
+        direction LR
+        Start_q(("Сотрудник задаёт<br/>вопрос"))
+        End_done(("Сотрудник<br/>получил ответ"))
+    end
+    subgraph Lane_orch["Оркестратор (LangGraph)"]
+        direction LR
+        T_auth["Определить права<br/>через Active Directory"]
+        G_scope{"Доступны все<br/>разделы базы?"}
+        T_narrow["Сузить область поиска<br/>до доступных документов"]
+        G_found{"Есть релевантные<br/>фрагменты?"}
+        T_nofound["Сообщить, что ответа<br/>в базе нет"]
+        End_nofound(("Ответ не найден"))
+        T_answer["Показать ответ<br/>со ссылками на пункты ЛНА"]
+    end
+    subgraph Lane_search["Поисковый слой"]
+        direction LR
+        T_hybrid["Гибридный поиск:<br/>векторный + BM25"]
+        T_rerank["Переранжировать<br/>и отобрать топ-K фрагментов"]
+    end
+    subgraph Lane_llm["LLM-контур (on-premises)"]
+        direction LR
+        T_prompt["Собрать промпт<br/>с цитатами и ограничениями"]
+        T_generate["Сгенерировать ответ<br/>локальной моделью"]
+        T_ground["Проверить опору<br/>каждого утверждения на источник"]
+        G_ground{"Все утверждения<br/>подтверждены?"}
+        T_flag["Выдать только цитаты<br/>без обобщения"]
+        End_partial(("Ответ с оговоркой"))
+    end
+    subgraph Lane_audit["Журнал"]
+        direction LR
+        T_log["Записать вопрос, источники<br/>и ответ в журнал"]
+    end
+    Start_q --> T_auth
+    T_auth --> G_scope
+    G_scope -- "да" --> T_hybrid
+    G_scope -- "нет" --> T_narrow
+    T_narrow --> T_hybrid
+    T_hybrid --> T_rerank
+    T_rerank --> G_found
+    G_found -- "да" --> T_prompt
+    G_found -- "нет" --> T_nofound
+    T_nofound --> End_nofound
+    T_prompt --> T_generate
+    T_generate --> T_ground
+    T_ground --> G_ground
+    G_ground -- "да" --> T_answer
+    G_ground -- "нет" --> T_flag
+    T_flag --> End_partial
+    T_answer --> T_log
+    T_log --> End_done
+    classDef evStart fill:#1f7a3f,stroke:#0f4523,color:#ffffff
+    classDef evEnd fill:#8a1f1f,stroke:#4a0f0f,color:#ffffff
+    classDef gw fill:#e0a800,stroke:#8a6800,color:#1a1a1a
+    classDef svcTask fill:#3a3f4b,stroke:#1b1e24,color:#ffffff
+    classDef msgTask fill:#5a3a7a,stroke:#2e1c40,color:#ffffff
+    class Start_q evStart
+    class T_auth,T_narrow,T_hybrid,T_rerank,T_prompt,T_generate,T_ground,T_log svcTask
+    class G_scope,G_found,G_ground gw
+    class T_nofound,T_flag,T_answer msgTask
+    class End_nofound,End_partial,End_done evEnd

@@ -1,0 +1,352 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="Definitions_two_stage_auction"
+                  targetNamespace="http://bpmn.io/schema/bpmn"
+                  exporter="sa-portfolio/tools/bpmn_gen.py" exporterVersion="1.0">
+  <bpmn:collaboration id="Collaboration_two_stage_auction">
+    <bpmn:participant id="Participant_two_stage_auction" name="ЭТП: предотбор и финальные торги" processRef="Process_two_stage_auction" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_two_stage_auction" name="Двухэтапные торги на перевозку" isExecutable="false">
+    <bpmn:documentation>Двухэтапная модель: сначала допуск участников по формальным критериям, затем ценовые торги только среди допущенных. Цена не может победить над отсутствием ледового класса.</bpmn:documentation>
+    <bpmn:laneSet id="LaneSet_two_stage_auction">
+      <bpmn:lane id="Lane_cargo" name="Грузовладелец">
+        <bpmn:flowNodeRef>Start_need</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_lot</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_deal</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_etp" name="ЭТП">
+        <bpmn:flowNodeRef>T_publish</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_verify</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_pass</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_admit</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_refuse</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_refused</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_enough</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_fail</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_failed</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_auction</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_close</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_contract</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_register</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_ship" name="Судовладелец">
+        <bpmn:flowNodeRef>T_apply</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_bid</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_ext" name="Внешние сервисы">
+        <bpmn:flowNodeRef>T_sign</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+      <bpmn:startEvent id="Start_need" name="Возникла потребность
+в перевозке">
+        <bpmn:outgoing>Flow_01</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:userTask id="T_lot" name="Сформировать лот:
+груз, маршрут, окно">
+        <bpmn:incoming>Flow_01</bpmn:incoming>
+        <bpmn:outgoing>Flow_02</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:serviceTask id="T_publish" name="Опубликовать лот
+и открыть предотбор">
+        <bpmn:incoming>Flow_02</bpmn:incoming>
+        <bpmn:outgoing>Flow_03</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:userTask id="T_apply" name="Подать заявку
+на предотбор">
+        <bpmn:incoming>Flow_03</bpmn:incoming>
+        <bpmn:outgoing>Flow_04</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:serviceTask id="T_verify" name="Проверить компанию,
+допуски и ледовый класс">
+        <bpmn:incoming>Flow_04</bpmn:incoming>
+        <bpmn:outgoing>Flow_05</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:exclusiveGateway id="G_pass" name="Предотбор пройден?">
+        <bpmn:incoming>Flow_05</bpmn:incoming>
+        <bpmn:outgoing>Flow_06</bpmn:outgoing>
+        <bpmn:outgoing>Flow_07</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:serviceTask id="T_admit" name="Допустить
+к финальным торгам">
+        <bpmn:incoming>Flow_06</bpmn:incoming>
+        <bpmn:outgoing>Flow_09</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:sendTask id="T_refuse" name="Отклонить
+с указанием причины">
+        <bpmn:incoming>Flow_07</bpmn:incoming>
+        <bpmn:outgoing>Flow_08</bpmn:outgoing>
+      </bpmn:sendTask>
+      <bpmn:endEvent id="End_refused" name="Участник не допущен">
+        <bpmn:incoming>Flow_08</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:exclusiveGateway id="G_enough" name="Допущенных
+достаточно?">
+        <bpmn:incoming>Flow_09</bpmn:incoming>
+        <bpmn:outgoing>Flow_10</bpmn:outgoing>
+        <bpmn:outgoing>Flow_11</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:serviceTask id="T_fail" name="Признать торги
+несостоявшимися">
+        <bpmn:incoming>Flow_11</bpmn:incoming>
+        <bpmn:outgoing>Flow_12</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="End_failed" name="Торги
+не состоялись">
+        <bpmn:incoming>Flow_12</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:serviceTask id="T_auction" name="Запустить
+финальные торги">
+        <bpmn:incoming>Flow_10</bpmn:incoming>
+        <bpmn:outgoing>Flow_13</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:userTask id="T_bid" name="Подавать
+ценовые предложения">
+        <bpmn:incoming>Flow_13</bpmn:incoming>
+        <bpmn:outgoing>Flow_14</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:serviceTask id="T_close" name="Закрыть торги по таймеру
+и определить победителя">
+        <bpmn:incoming>Flow_14</bpmn:incoming>
+        <bpmn:outgoing>Flow_15</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_contract" name="Сформировать проект
+договора перевозки">
+        <bpmn:incoming>Flow_15</bpmn:incoming>
+        <bpmn:outgoing>Flow_16</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_sign" name="Подписать документы
+электронной подписью">
+        <bpmn:incoming>Flow_16</bpmn:incoming>
+        <bpmn:outgoing>Flow_17</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="T_register" name="Зарегистрировать сделку
+и открыть отслеживание">
+        <bpmn:incoming>Flow_17</bpmn:incoming>
+        <bpmn:outgoing>Flow_18</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="End_deal" name="Сделка заключена">
+        <bpmn:incoming>Flow_18</bpmn:incoming>
+        <bpmn:messageEventDefinition />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_01" sourceRef="Start_need" targetRef="T_lot" />
+      <bpmn:sequenceFlow id="Flow_02" sourceRef="T_lot" targetRef="T_publish" />
+      <bpmn:sequenceFlow id="Flow_03" sourceRef="T_publish" targetRef="T_apply" />
+      <bpmn:sequenceFlow id="Flow_04" sourceRef="T_apply" targetRef="T_verify" />
+      <bpmn:sequenceFlow id="Flow_05" sourceRef="T_verify" targetRef="G_pass" />
+      <bpmn:sequenceFlow id="Flow_06" name="да" sourceRef="G_pass" targetRef="T_admit" />
+      <bpmn:sequenceFlow id="Flow_07" name="нет" sourceRef="G_pass" targetRef="T_refuse" />
+      <bpmn:sequenceFlow id="Flow_08" sourceRef="T_refuse" targetRef="End_refused" />
+      <bpmn:sequenceFlow id="Flow_09" sourceRef="T_admit" targetRef="G_enough" />
+      <bpmn:sequenceFlow id="Flow_10" name="да" sourceRef="G_enough" targetRef="T_auction" />
+      <bpmn:sequenceFlow id="Flow_11" name="нет" sourceRef="G_enough" targetRef="T_fail" />
+      <bpmn:sequenceFlow id="Flow_12" sourceRef="T_fail" targetRef="End_failed" />
+      <bpmn:sequenceFlow id="Flow_13" sourceRef="T_auction" targetRef="T_bid" />
+      <bpmn:sequenceFlow id="Flow_14" sourceRef="T_bid" targetRef="T_close" />
+      <bpmn:sequenceFlow id="Flow_15" sourceRef="T_close" targetRef="T_contract" />
+      <bpmn:sequenceFlow id="Flow_16" sourceRef="T_contract" targetRef="T_sign" />
+      <bpmn:sequenceFlow id="Flow_17" sourceRef="T_sign" targetRef="T_register" />
+      <bpmn:sequenceFlow id="Flow_18" sourceRef="T_register" targetRef="End_deal" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_two_stage_auction">
+    <bpmndi:BPMNPlane id="Plane_two_stage_auction" bpmnElement="Collaboration_two_stage_auction">
+      <bpmndi:BPMNShape id="Shape_Participant_two_stage_auction" bpmnElement="Participant_two_stage_auction" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="3110" height="850" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_cargo" bpmnElement="Lane_cargo" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="3080" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_etp" bpmnElement="Lane_etp" isHorizontal="true">
+        <dc:Bounds x="190" y="260" width="3080" height="310" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_ship" bpmnElement="Lane_ship" isHorizontal="true">
+        <dc:Bounds x="190" y="570" width="3080" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_ext" bpmnElement="Lane_ext" isHorizontal="true">
+        <dc:Bounds x="190" y="750" width="3080" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Start_need" bpmnElement="Start_need">
+        <dc:Bounds x="267" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="232" y="194" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_lot" bpmnElement="T_lot">
+        <dc:Bounds x="415" y="130" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_publish" bpmnElement="T_publish">
+        <dc:Bounds x="605" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_apply" bpmnElement="T_apply">
+        <dc:Bounds x="795" y="620" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_verify" bpmnElement="T_verify">
+        <dc:Bounds x="985" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_G_pass" bpmnElement="G_pass">
+        <dc:Bounds x="1210" y="325" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1175" y="381" width="120" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_admit" bpmnElement="T_admit">
+        <dc:Bounds x="1365" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_refuse" bpmnElement="T_refuse">
+        <dc:Bounds x="1365" y="440" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_refused" bpmnElement="End_refused">
+        <dc:Bounds x="1597" y="462" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1562" y="504" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_G_enough" bpmnElement="G_enough">
+        <dc:Bounds x="1780" y="325" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1745" y="381" width="120" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_fail" bpmnElement="T_fail">
+        <dc:Bounds x="1935" y="440" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_failed" bpmnElement="End_failed">
+        <dc:Bounds x="2167" y="462" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2132" y="504" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_auction" bpmnElement="T_auction">
+        <dc:Bounds x="1935" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_bid" bpmnElement="T_bid">
+        <dc:Bounds x="2125" y="620" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_close" bpmnElement="T_close">
+        <dc:Bounds x="2315" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_contract" bpmnElement="T_contract">
+        <dc:Bounds x="2505" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_sign" bpmnElement="T_sign">
+        <dc:Bounds x="2695" y="800" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_T_register" bpmnElement="T_register">
+        <dc:Bounds x="2885" y="310" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_deal" bpmnElement="End_deal">
+        <dc:Bounds x="3117" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="3082" y="194" width="106" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_Flow_01" bpmnElement="Flow_01">
+        <di:waypoint x="303" y="170" />
+        <di:waypoint x="415" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_02" bpmnElement="Flow_02">
+        <di:waypoint x="535" y="170" />
+        <di:waypoint x="570" y="170" />
+        <di:waypoint x="570" y="350" />
+        <di:waypoint x="605" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_03" bpmnElement="Flow_03">
+        <di:waypoint x="725" y="350" />
+        <di:waypoint x="760" y="350" />
+        <di:waypoint x="760" y="660" />
+        <di:waypoint x="795" y="660" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_04" bpmnElement="Flow_04">
+        <di:waypoint x="915" y="660" />
+        <di:waypoint x="950" y="660" />
+        <di:waypoint x="950" y="350" />
+        <di:waypoint x="985" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_05" bpmnElement="Flow_05">
+        <di:waypoint x="1105" y="350" />
+        <di:waypoint x="1210" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_06" bpmnElement="Flow_06">
+        <di:waypoint x="1260" y="350" />
+        <di:waypoint x="1365" y="350" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1345" y="326" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_07" bpmnElement="Flow_07">
+        <di:waypoint x="1260" y="350" />
+        <di:waypoint x="1312" y="350" />
+        <di:waypoint x="1312" y="480" />
+        <di:waypoint x="1365" y="480" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1292" y="456" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_08" bpmnElement="Flow_08">
+        <di:waypoint x="1485" y="480" />
+        <di:waypoint x="1597" y="480" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_09" bpmnElement="Flow_09">
+        <di:waypoint x="1485" y="350" />
+        <di:waypoint x="1780" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_10" bpmnElement="Flow_10">
+        <di:waypoint x="1830" y="350" />
+        <di:waypoint x="1935" y="350" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1915" y="326" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_11" bpmnElement="Flow_11">
+        <di:waypoint x="1830" y="350" />
+        <di:waypoint x="1882" y="350" />
+        <di:waypoint x="1882" y="480" />
+        <di:waypoint x="1935" y="480" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1862" y="456" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_12" bpmnElement="Flow_12">
+        <di:waypoint x="2055" y="480" />
+        <di:waypoint x="2167" y="480" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_13" bpmnElement="Flow_13">
+        <di:waypoint x="2055" y="350" />
+        <di:waypoint x="2090" y="350" />
+        <di:waypoint x="2090" y="660" />
+        <di:waypoint x="2125" y="660" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_14" bpmnElement="Flow_14">
+        <di:waypoint x="2245" y="660" />
+        <di:waypoint x="2280" y="660" />
+        <di:waypoint x="2280" y="350" />
+        <di:waypoint x="2315" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_15" bpmnElement="Flow_15">
+        <di:waypoint x="2435" y="350" />
+        <di:waypoint x="2505" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_16" bpmnElement="Flow_16">
+        <di:waypoint x="2625" y="350" />
+        <di:waypoint x="2660" y="350" />
+        <di:waypoint x="2660" y="840" />
+        <di:waypoint x="2695" y="840" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_17" bpmnElement="Flow_17">
+        <di:waypoint x="2815" y="840" />
+        <di:waypoint x="2850" y="840" />
+        <di:waypoint x="2850" y="350" />
+        <di:waypoint x="2885" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_18" bpmnElement="Flow_18">
+        <di:waypoint x="3005" y="350" />
+        <di:waypoint x="3061" y="350" />
+        <di:waypoint x="3061" y="170" />
+        <di:waypoint x="3117" y="170" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

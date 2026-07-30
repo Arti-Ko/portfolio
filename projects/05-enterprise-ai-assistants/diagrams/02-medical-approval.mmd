@@ -1,0 +1,60 @@
+flowchart LR
+    subgraph Lane_clinic["Клиника"]
+        direction LR
+        Start_protocol(("Клиника прислала<br/>протокол назначения"))
+        End_done(("Клиника<br/>получила решение"))
+    end
+    subgraph Lane_ocr["Распознавание документа"]
+        direction LR
+        T_ocr["Распознать документ<br/>с сохранением структуры"]
+        T_ner["Извлечь диагнозы,<br/>услуги, назначения"]
+        G_quality{"Качество распознавания<br/>достаточное?"}
+    end
+    subgraph Lane_rules["Клинический движок"]
+        direction LR
+        T_map["Сопоставить с МКБ-10<br/>и клиническими рекомендациями"]
+        T_check["Проверить назначение<br/>по правилам и полису"]
+        G_verdict{"Соответствует<br/>правилам?"}
+        T_approve["Сформировать решение<br/>о согласовании"]
+        T_reject["Сформировать<br/>мотивированный отказ"]
+    end
+    subgraph Lane_expert["Врач-эксперт"]
+        direction LR
+        T_manual_read["Прочитать документ<br/>вручную"]
+        T_expert["Передать случай<br/>врачу-эксперту"]
+        T_decide["Принять решение<br/>по спорному случаю"]
+    end
+    subgraph Lane_reg["Учётная система"]
+        direction LR
+        T_record["Зафиксировать решение<br/>и обоснование"]
+        T_notify["Отправить решение<br/>в клинику"]
+    end
+    Start_protocol --> T_ocr
+    T_ocr --> T_ner
+    T_ner --> G_quality
+    G_quality -- "да" --> T_map
+    G_quality -- "нет" --> T_manual_read
+    T_manual_read --> T_map
+    T_map --> T_check
+    T_check --> G_verdict
+    G_verdict -- "да" --> T_approve
+    G_verdict -- "нет" --> T_reject
+    G_verdict -- "спорно" --> T_expert
+    T_expert --> T_decide
+    T_approve --> T_record
+    T_reject --> T_record
+    T_decide --> T_record
+    T_record --> T_notify
+    T_notify --> End_done
+    classDef evStart fill:#1f7a3f,stroke:#0f4523,color:#ffffff
+    classDef evEnd fill:#8a1f1f,stroke:#4a0f0f,color:#ffffff
+    classDef gw fill:#e0a800,stroke:#8a6800,color:#1a1a1a
+    classDef userTask fill:#2b5d8a,stroke:#143349,color:#ffffff
+    classDef svcTask fill:#3a3f4b,stroke:#1b1e24,color:#ffffff
+    classDef msgTask fill:#5a3a7a,stroke:#2e1c40,color:#ffffff
+    class Start_protocol evStart
+    class T_ocr,T_ner,T_map,T_check,T_approve,T_reject,T_record svcTask
+    class G_quality,G_verdict gw
+    class T_manual_read,T_decide userTask
+    class T_expert,T_notify msgTask
+    class End_done evEnd

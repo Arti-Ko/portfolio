@@ -383,6 +383,355 @@ reidentification = Model(
 )
 
 
+# --------------------------------------------------------------------------
+# Проект 5 — Enterprise AI-помощники (on-premises LLM)
+# --------------------------------------------------------------------------
+
+rag_query = Model(
+    id="rag_query",
+    name="Ответ на вопрос по нормативной базе",
+    pool_name="AI-Librarium: поиск по локальным нормативным актам",
+    documentation=(
+        "Сотрудник задаёт вопрос на естественном языке, система отвечает "
+        "с обязательными ссылками на пункты ЛНА. Ответ без подтверждённого "
+        "источника не выдаётся как утверждение."
+    ),
+    lanes=[
+        Lane("Lane_emp", "Сотрудник", rows=1),
+        Lane("Lane_orch", "Оркестратор (LangGraph)", rows=2),
+        Lane("Lane_search", "Поисковый слой", rows=1),
+        Lane("Lane_llm", "LLM-контур (on-premises)", rows=2),
+        Lane("Lane_audit", "Журнал", rows=1),
+    ],
+    nodes=[
+        Start("Start_q", "Сотрудник задаёт\nвопрос", "Lane_emp", 0, kind="message"),
+        Task("T_auth", "Определить права\nчерез Active Directory", "Lane_orch", 1, kind="service"),
+        Gateway("G_scope", "Доступны все\nразделы базы?", "Lane_orch", 2),
+        Task("T_narrow", "Сузить область поиска\nдо доступных документов", "Lane_orch", 3, row=1, kind="service"),
+        Task("T_hybrid", "Гибридный поиск:\nвекторный + BM25", "Lane_search", 4, kind="service"),
+        Task("T_rerank", "Переранжировать\nи отобрать топ-K фрагментов", "Lane_search", 5, kind="service"),
+        Gateway("G_found", "Есть релевантные\nфрагменты?", "Lane_orch", 6),
+        Task("T_nofound", "Сообщить, что ответа\nв базе нет", "Lane_orch", 7, row=1, kind="send"),
+        End("End_nofound", "Ответ не найден", "Lane_orch", 8, row=1),
+        Task("T_prompt", "Собрать промпт\nс цитатами и ограничениями", "Lane_llm", 7, kind="service"),
+        Task("T_generate", "Сгенерировать ответ\nлокальной моделью", "Lane_llm", 8, kind="service"),
+        Task("T_ground", "Проверить опору\nкаждого утверждения на источник", "Lane_llm", 9, kind="service"),
+        Gateway("G_ground", "Все утверждения\nподтверждены?", "Lane_llm", 10),
+        Task("T_flag", "Выдать только цитаты\nбез обобщения", "Lane_llm", 11, row=1, kind="send"),
+        End("End_partial", "Ответ с оговоркой", "Lane_llm", 12, row=1),
+        Task("T_answer", "Показать ответ\nсо ссылками на пункты ЛНА", "Lane_orch", 11, kind="send"),
+        Task("T_log", "Записать вопрос, источники\nи ответ в журнал", "Lane_audit", 12, kind="service"),
+        End("End_done", "Сотрудник\nполучил ответ", "Lane_emp", 13),
+    ],
+    flows=[
+        Flow("Start_q", "T_auth"),
+        Flow("T_auth", "G_scope"),
+        Flow("G_scope", "T_hybrid", "да"),
+        Flow("G_scope", "T_narrow", "нет"),
+        Flow("T_narrow", "T_hybrid"),
+        Flow("T_hybrid", "T_rerank"),
+        Flow("T_rerank", "G_found"),
+        Flow("G_found", "T_prompt", "да"),
+        Flow("G_found", "T_nofound", "нет"),
+        Flow("T_nofound", "End_nofound"),
+        Flow("T_prompt", "T_generate"),
+        Flow("T_generate", "T_ground"),
+        Flow("T_ground", "G_ground"),
+        Flow("G_ground", "T_answer", "да"),
+        Flow("G_ground", "T_flag", "нет"),
+        Flow("T_flag", "End_partial"),
+        Flow("T_answer", "T_log"),
+        Flow("T_log", "End_done"),
+    ],
+)
+
+medical_approval = Model(
+    id="medical_approval",
+    name="Согласование медицинского назначения",
+    pool_name="Проверка протокола клиники на соответствие правилам",
+    documentation=(
+        "Протокол из клиники проверяется на соответствие клиническим "
+        "рекомендациям и условиям полиса. Спорные случаи уходят "
+        "врачу-эксперту: автомат не отказывает в лечении единолично."
+    ),
+    lanes=[
+        Lane("Lane_clinic", "Клиника", rows=1),
+        Lane("Lane_ocr", "Распознавание документа", rows=1),
+        Lane("Lane_rules", "Клинический движок", rows=2),
+        Lane("Lane_expert", "Врач-эксперт", rows=1),
+        Lane("Lane_reg", "Учётная система", rows=1),
+    ],
+    nodes=[
+        Start("Start_protocol", "Клиника прислала\nпротокол назначения", "Lane_clinic", 0, kind="message"),
+        Task("T_ocr", "Распознать документ\nс сохранением структуры", "Lane_ocr", 1, kind="service"),
+        Task("T_ner", "Извлечь диагнозы,\nуслуги, назначения", "Lane_ocr", 2, kind="service"),
+        Gateway("G_quality", "Качество распознавания\nдостаточное?", "Lane_ocr", 3),
+        Task("T_manual_read", "Прочитать документ\nвручную", "Lane_expert", 4, kind="user"),
+        Task("T_map", "Сопоставить с МКБ-10\nи клиническими рекомендациями", "Lane_rules", 5, kind="service"),
+        Task("T_check", "Проверить назначение\nпо правилам и полису", "Lane_rules", 6, kind="service"),
+        Gateway("G_verdict", "Соответствует\nправилам?", "Lane_rules", 7),
+        Task("T_approve", "Сформировать решение\nо согласовании", "Lane_rules", 8, kind="service"),
+        Task("T_reject", "Сформировать\nмотивированный отказ", "Lane_rules", 8, row=1, kind="service"),
+        Task("T_expert", "Передать случай\nврачу-эксперту", "Lane_expert", 8, kind="send"),
+        Task("T_decide", "Принять решение\nпо спорному случаю", "Lane_expert", 9, kind="user"),
+        Task("T_record", "Зафиксировать решение\nи обоснование", "Lane_reg", 10, kind="service"),
+        Task("T_notify", "Отправить решение\nв клинику", "Lane_reg", 11, kind="send"),
+        End("End_done", "Клиника\nполучила решение", "Lane_clinic", 12, kind="message"),
+    ],
+    flows=[
+        Flow("Start_protocol", "T_ocr"),
+        Flow("T_ocr", "T_ner"),
+        Flow("T_ner", "G_quality"),
+        Flow("G_quality", "T_map", "да"),
+        Flow("G_quality", "T_manual_read", "нет"),
+        Flow("T_manual_read", "T_map"),
+        Flow("T_map", "T_check"),
+        Flow("T_check", "G_verdict"),
+        Flow("G_verdict", "T_approve", "да"),
+        Flow("G_verdict", "T_reject", "нет"),
+        Flow("G_verdict", "T_expert", "спорно"),
+        Flow("T_expert", "T_decide"),
+        Flow("T_approve", "T_record"),
+        Flow("T_reject", "T_record"),
+        Flow("T_decide", "T_record"),
+        Flow("T_record", "T_notify"),
+        Flow("T_notify", "End_done"),
+    ],
+)
+
+
+# --------------------------------------------------------------------------
+# Проект 6 — ЭТП морских грузоперевозок
+# --------------------------------------------------------------------------
+
+two_stage_auction = Model(
+    id="two_stage_auction",
+    name="Двухэтапные торги на перевозку",
+    pool_name="ЭТП: предотбор и финальные торги",
+    documentation=(
+        "Двухэтапная модель: сначала допуск участников по формальным "
+        "критериям, затем ценовые торги только среди допущенных. "
+        "Цена не может победить над отсутствием ледового класса."
+    ),
+    lanes=[
+        Lane("Lane_cargo", "Грузовладелец", rows=1),
+        Lane("Lane_etp", "ЭТП", rows=2),
+        Lane("Lane_ship", "Судовладелец", rows=1),
+        Lane("Lane_ext", "Внешние сервисы", rows=1),
+    ],
+    nodes=[
+        Start("Start_need", "Возникла потребность\nв перевозке", "Lane_cargo", 0),
+        Task("T_lot", "Сформировать лот:\nгруз, маршрут, окно", "Lane_cargo", 1, kind="user"),
+        Task("T_publish", "Опубликовать лот\nи открыть предотбор", "Lane_etp", 2, kind="service"),
+        Task("T_apply", "Подать заявку\nна предотбор", "Lane_ship", 3, kind="user"),
+        Task("T_verify", "Проверить компанию,\nдопуски и ледовый класс", "Lane_etp", 4, kind="service"),
+        Gateway("G_pass", "Предотбор пройден?", "Lane_etp", 5),
+        Task("T_admit", "Допустить\nк финальным торгам", "Lane_etp", 6, kind="service"),
+        Task("T_refuse", "Отклонить\nс указанием причины", "Lane_etp", 6, row=1, kind="send"),
+        End("End_refused", "Участник не допущен", "Lane_etp", 7, row=1),
+        Gateway("G_enough", "Допущенных\nдостаточно?", "Lane_etp", 8),
+        Task("T_fail", "Признать торги\nнесостоявшимися", "Lane_etp", 9, row=1, kind="service"),
+        End("End_failed", "Торги\nне состоялись", "Lane_etp", 10, row=1),
+        Task("T_auction", "Запустить\nфинальные торги", "Lane_etp", 9, kind="service"),
+        Task("T_bid", "Подавать\nценовые предложения", "Lane_ship", 10, kind="user"),
+        Task("T_close", "Закрыть торги по таймеру\nи определить победителя", "Lane_etp", 11, kind="service"),
+        Task("T_contract", "Сформировать проект\nдоговора перевозки", "Lane_etp", 12, kind="service"),
+        Task("T_sign", "Подписать документы\nэлектронной подписью", "Lane_ext", 13, kind="service"),
+        Task("T_register", "Зарегистрировать сделку\nи открыть отслеживание", "Lane_etp", 14, kind="service"),
+        End("End_deal", "Сделка заключена", "Lane_cargo", 15, kind="message"),
+    ],
+    flows=[
+        Flow("Start_need", "T_lot"),
+        Flow("T_lot", "T_publish"),
+        Flow("T_publish", "T_apply"),
+        Flow("T_apply", "T_verify"),
+        Flow("T_verify", "G_pass"),
+        Flow("G_pass", "T_admit", "да"),
+        Flow("G_pass", "T_refuse", "нет"),
+        Flow("T_refuse", "End_refused"),
+        Flow("T_admit", "G_enough"),
+        Flow("G_enough", "T_auction", "да"),
+        Flow("G_enough", "T_fail", "нет"),
+        Flow("T_fail", "End_failed"),
+        Flow("T_auction", "T_bid"),
+        Flow("T_bid", "T_close"),
+        Flow("T_close", "T_contract"),
+        Flow("T_contract", "T_sign"),
+        Flow("T_sign", "T_register"),
+        Flow("T_register", "End_deal"),
+    ],
+)
+
+voyage_tracking = Model(
+    id="voyage_tracking",
+    name="Рейс и безбумажное закрытие сделки",
+    pool_name="ЭТП: исполнение перевозки",
+    documentation=(
+        "От погрузки до закрытия сделки без единого бумажного документа. "
+        "Положение судна приходит по AIS, юридически значимые документы "
+        "подписываются электронной подписью."
+    ),
+    lanes=[
+        Lane("Lane_ship", "Судовладелец", rows=1),
+        Lane("Lane_port", "Порт и терминал", rows=1),
+        Lane("Lane_etp", "ЭТП", rows=2),
+        Lane("Lane_ext", "AIS и электронная подпись", rows=1),
+        Lane("Lane_cargo", "Грузовладелец", rows=1),
+    ],
+    nodes=[
+        Start("Start_load", "Судно подано\nпод погрузку", "Lane_ship", 0, kind="message"),
+        Task("T_slot", "Подтвердить слот\nи начать погрузку", "Lane_port", 1, kind="user"),
+        Task("T_bol", "Сформировать коносамент\nпо факту погрузки", "Lane_etp", 2, kind="service"),
+        Task("T_sign_bol", "Подписать коносамент\nэлектронной подписью", "Lane_ext", 3, kind="service"),
+        Task("T_ais", "Передавать координаты\nсудна по AIS", "Lane_ext", 4, kind="service"),
+        Task("T_track", "Обновлять положение\nна карте", "Lane_etp", 5, kind="service"),
+        Task("T_watch", "Следить за рейсом\nв личном кабинете", "Lane_cargo", 6, kind="user"),
+        Gateway("G_dev", "Отклонение\nот маршрута или срока?", "Lane_etp", 7),
+        Task("T_alert", "Уведомить стороны\nи зафиксировать событие", "Lane_etp", 8, row=1, kind="send"),
+        Task("T_arrive", "Принять судно\nи разгрузить", "Lane_port", 9, kind="user"),
+        Task("T_act", "Сформировать акт\nприёма-передачи", "Lane_port", 10, kind="service"),
+        Task("T_sign_act", "Подписать акт\nэлектронной подписью", "Lane_ext", 11, kind="service"),
+        Task("T_close", "Закрыть сделку\nи обновить рейтинги", "Lane_etp", 12, kind="service"),
+        End("End_done", "Перевозка закрыта\nбез бумаги", "Lane_cargo", 13),
+    ],
+    flows=[
+        Flow("Start_load", "T_slot"),
+        Flow("T_slot", "T_bol"),
+        Flow("T_bol", "T_sign_bol"),
+        Flow("T_sign_bol", "T_ais"),
+        Flow("T_ais", "T_track"),
+        Flow("T_track", "T_watch"),
+        Flow("T_watch", "G_dev"),
+        Flow("G_dev", "T_arrive", "нет"),
+        Flow("G_dev", "T_alert", "да"),
+        Flow("T_alert", "T_arrive"),
+        Flow("T_arrive", "T_act"),
+        Flow("T_act", "T_sign_act"),
+        Flow("T_sign_act", "T_close"),
+        Flow("T_close", "End_done"),
+    ],
+)
+
+
+# --------------------------------------------------------------------------
+# Проект 7 — HR-платформа массового найма
+# --------------------------------------------------------------------------
+
+candidate_journey = Model(
+    id="candidate_journey",
+    name="Путь кандидата от анкеты до трудоустройства",
+    pool_name="Массовый найм самозанятых и ИП",
+    documentation=(
+        "Единая воронка для тысяч кандидатов с проверкой налогового статуса "
+        "и службы безопасности. Логистическое направление уходит "
+        "в дополнительный контур допуска."
+    ),
+    lanes=[
+        Lane("Lane_cand", "Кандидат", rows=1),
+        Lane("Lane_portal", "Портал найма", rows=1),
+        Lane("Lane_checks", "Проверки", rows=2),
+        Lane("Lane_hr", "HR и руководитель", rows=2),
+        Lane("Lane_ext", "Внешние системы", rows=1),
+    ],
+    nodes=[
+        Start("Start_apply", "Кандидат\nоткрыл анкету", "Lane_cand", 0, kind="message"),
+        Task("T_personal", "Заполнить\nперсональные данные", "Lane_cand", 1, kind="user"),
+        Task("T_form", "Выбрать форму занятости:\nсамозанятый или ИП", "Lane_cand", 2, kind="user"),
+        Task("T_docs", "Запросить документы\nпо выбранной форме", "Lane_portal", 3, kind="send"),
+        Task("T_upload", "Загрузить документы", "Lane_cand", 4, kind="user"),
+        Task("T_fns", "Проверить налоговый статус\nв ФНС", "Lane_checks", 5, kind="service"),
+        Gateway("G_status", "Статус\nподтверждён?", "Lane_checks", 6),
+        Task("T_help", "Показать инструкцию\nпо регистрации статуса", "Lane_checks", 7, row=1, kind="send"),
+        End("End_pending", "Кандидат вне воронки\nдо регистрации", "Lane_checks", 8, row=1),
+        Task("T_sb", "Проверка\nслужбы безопасности", "Lane_checks", 7, kind="service"),
+        Gateway("G_sb", "Проверка\nпройдена?", "Lane_checks", 8),
+        Task("T_reject", "Отказать\nс фиксацией причины", "Lane_checks", 9, row=1, kind="send"),
+        End("End_rejected", "Кандидат отклонён", "Lane_checks", 10, row=1),
+        Task("T_test", "Выдать тест\nи назначить собеседование", "Lane_portal", 9, kind="send"),
+        Task("T_pass", "Пройти тест\nи собеседование", "Lane_cand", 10, kind="user"),
+        Gateway("G_branch", "Логистическое\nнаправление?", "Lane_hr", 11),
+        Task("T_bdd", "Направить на медконтроль\nи проверку БДД", "Lane_hr", 12, row=1, kind="send"),
+        End("End_to_med", "Передано\nв контур допуска", "Lane_hr", 13, row=1, kind="message"),
+        Task("T_hire", "Оформить\nтрудоустройство", "Lane_portal", 12, kind="service"),
+        Task("T_sync", "Синхронизировать\nс CRM и шиной событий", "Lane_ext", 13, kind="service"),
+        End("End_hired", "Кандидат\nтрудоустроен", "Lane_cand", 14),
+    ],
+    flows=[
+        Flow("Start_apply", "T_personal"),
+        Flow("T_personal", "T_form"),
+        Flow("T_form", "T_docs"),
+        Flow("T_docs", "T_upload"),
+        Flow("T_upload", "T_fns"),
+        Flow("T_fns", "G_status"),
+        Flow("G_status", "T_sb", "да"),
+        Flow("G_status", "T_help", "нет"),
+        Flow("T_help", "End_pending"),
+        Flow("T_sb", "G_sb"),
+        Flow("G_sb", "T_test", "да"),
+        Flow("G_sb", "T_reject", "нет"),
+        Flow("T_reject", "End_rejected"),
+        Flow("T_test", "T_pass"),
+        Flow("T_pass", "G_branch"),
+        Flow("G_branch", "T_hire", "нет"),
+        Flow("G_branch", "T_bdd", "да"),
+        Flow("T_bdd", "End_to_med"),
+        Flow("T_hire", "T_sync"),
+        Flow("T_sync", "End_hired"),
+    ],
+)
+
+driver_clearance = Model(
+    id="driver_clearance",
+    name="Медконтроль и проверка безопасности дорожного движения",
+    pool_name="Допуск кандидата к работе на транспорте",
+    documentation=(
+        "Дополнительный контур для логистического направления. Медицинское "
+        "заключение и профиль нарушений проверяются до открытия доступа "
+        "к сменам, а не после первого рейса."
+    ),
+    lanes=[
+        Lane("Lane_cand", "Кандидат", rows=1),
+        Lane("Lane_portal", "Портал найма", rows=2),
+        Lane("Lane_med", "Медицинский партнёр", rows=1),
+        Lane("Lane_bdd", "Специалист БДД", rows=2),
+        Lane("Lane_sb", "Служба безопасности", rows=1),
+    ],
+    nodes=[
+        Start("Start_bdd", "Кандидат направлен\nна допуск", "Lane_cand", 0, kind="message"),
+        Task("T_book", "Записать на медосмотр\nв партнёрской сети", "Lane_portal", 1, kind="service"),
+        Task("T_visit", "Пройти медосмотр", "Lane_cand", 2, kind="user"),
+        Task("T_result", "Передать заключение\nв портал", "Lane_med", 3, kind="service"),
+        Gateway("G_med", "Заключение\nположительное?", "Lane_portal", 4),
+        Task("T_med_no", "Зафиксировать отказ\nпо медицинским основаниям", "Lane_portal", 5, row=1, kind="send"),
+        End("End_med_no", "Допуск не выдан", "Lane_portal", 6, row=1),
+        Task("T_license", "Проверить удостоверение\nи стаж", "Lane_bdd", 5, kind="service"),
+        Task("T_violations", "Запросить историю\nнарушений", "Lane_bdd", 6, kind="service"),
+        Gateway("G_bdd", "Профиль риска\nдопустим?", "Lane_bdd", 7),
+        Task("T_bdd_no", "Отказать в допуске\nк управлению", "Lane_bdd", 8, row=1, kind="send"),
+        End("End_bdd_no", "Допуск\nк транспорту закрыт", "Lane_bdd", 9, row=1),
+        Task("T_final", "Согласовать допуск", "Lane_sb", 8, kind="user"),
+        Task("T_grant", "Открыть доступ к сменам\nи оформить трудоустройство", "Lane_portal", 9, kind="service"),
+        End("End_ok", "Кандидат допущен\nк работе", "Lane_cand", 10),
+    ],
+    flows=[
+        Flow("Start_bdd", "T_book"),
+        Flow("T_book", "T_visit"),
+        Flow("T_visit", "T_result"),
+        Flow("T_result", "G_med"),
+        Flow("G_med", "T_license", "да"),
+        Flow("G_med", "T_med_no", "нет"),
+        Flow("T_med_no", "End_med_no"),
+        Flow("T_license", "T_violations"),
+        Flow("T_violations", "G_bdd"),
+        Flow("G_bdd", "T_final", "да"),
+        Flow("G_bdd", "T_bdd_no", "нет"),
+        Flow("T_bdd_no", "End_bdd_no"),
+        Flow("T_final", "T_grant"),
+        Flow("T_grant", "End_ok"),
+    ],
+)
+
+
 TARGETS = [
     ("01-telegram-event-bot", "01-registration.bpmn", registration),
     ("01-telegram-event-bot", "02-reminders.bpmn", reminders),
@@ -391,6 +740,12 @@ TARGETS = [
     ("02-ai-dubbing", "02-editor-review.bpmn", editor_review),
     ("03-medical-anonymizer", "01-anonymization.bpmn", anonymization),
     ("03-medical-anonymizer", "02-reidentification.bpmn", reidentification),
+    ("05-enterprise-ai-assistants", "01-rag-query.bpmn", rag_query),
+    ("05-enterprise-ai-assistants", "02-medical-approval.bpmn", medical_approval),
+    ("06-maritime-etp", "01-two-stage-auction.bpmn", two_stage_auction),
+    ("06-maritime-etp", "02-voyage-tracking.bpmn", voyage_tracking),
+    ("07-mass-hiring-platform", "01-candidate-journey.bpmn", candidate_journey),
+    ("07-mass-hiring-platform", "02-driver-clearance.bpmn", driver_clearance),
 ]
 
 
